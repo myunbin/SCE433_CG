@@ -40,6 +40,9 @@
     <!-- 모듈화된 JavaScript 파일들 -->
     <script type="text/javascript" src="js/camera.js"></script>
     <script type="text/javascript" src="js/model.js"></script>
+    <script type="text/javascript" src="js/poseController.js"></script>
+    <script type="text/javascript" src="js/poseStorage.js"></script>
+    <script type="text/javascript" src="js/animation.js"></script>
     <script type="text/javascript" src="athletics.js"></script>
 </head>
 <body>
@@ -66,12 +69,147 @@
         <div class="right-panel">
             <h2>컨트롤</h2>
             
-            <div class="section-title">포즈 전환</div>
+            <!-- 포즈 기본 컨트롤 -->
+            <div class="accordion-section">
+                <div class="accordion-header" data-target="pose-control">
+                    <span class="accordion-title">📋 포즈 전환</span>
+                    <span class="accordion-arrow">▼</span>
+                </div>
+                <div class="accordion-content active" id="pose-control">
             <div class="controls">
-                <button id="pose-toggle">달리기 포즈로 전환</button>
+                <button id="apply-running-pose">달리기 포즈 적용</button>
+                <button id="reset-all-pose">전체 초기화</button>
+                    </div>
+                </div>
             </div>
             
-            <div class="section-title">뷰 조작</div>
+            <!-- 관절 선택 및 제어 -->
+            <div class="accordion-section">
+                <div class="accordion-header" data-target="joint-control">
+                    <span class="accordion-title">🦴 관절 제어</span>
+                    <span class="accordion-arrow">▼</span>
+                </div>
+                <div class="accordion-content active" id="joint-control">
+                    <!-- 관절 선택 -->
+                    <div class="subsection-title">관절 선택</div>
+                    <div class="controls">
+                        <select id="joint-selector">
+                            <option value="">관절을 선택하세요</option>
+                            <option value="HEAD">머리/목</option>
+                            <option value="LEFT_UPPER_ARM">왼쪽 어깨</option>
+                            <option value="RIGHT_UPPER_ARM">오른쪽 어깨</option>
+                            <option value="LEFT_LOWER_ARM">왼쪽 팔꿈치</option>
+                            <option value="RIGHT_LOWER_ARM">오른쪽 팔꿈치</option>
+                            <option value="LEFT_HAND">왼쪽 손목</option>
+                            <option value="RIGHT_HAND">오른쪽 손목</option>
+                            <option value="LEFT_UPPER_LEG">왼쪽 엉덩이</option>
+                            <option value="RIGHT_UPPER_LEG">오른쪽 엉덩이</option>
+                            <option value="LEFT_LOWER_LEG">왼쪽 무릎</option>
+                            <option value="RIGHT_LOWER_LEG">오른쪽 무릎</option>
+                            <option value="LEFT_FOOT">왼쪽 발목</option>
+                            <option value="RIGHT_FOOT">오른쪽 발목</option>
+                        </select>
+                    </div>
+                    
+                    <!-- 관절별 회전 컨트롤 -->
+                    <div class="subsection-title">관절 회전 (<span id="selected-joint-name">관절을 선택하세요</span>)</div>
+                    <div class="slider-controls" id="joint-rotation-controls" style="display: none;">
+                        <div class="slider-container" id="joint-axis-x" style="display: none;">
+                            <div class="slider-label">
+                                <span id="joint-axis-x-label">회전 X</span>
+                                <span id="joint-rotate-x-value">0°</span>
+                            </div>
+                            <input type="range" id="joint-rotate-x" min="-180" max="180" value="0">
+                        </div>
+                        
+                        <div class="slider-container" id="joint-axis-y" style="display: none;">
+                            <div class="slider-label">
+                                <span id="joint-axis-y-label">회전 Y</span>
+                                <span id="joint-rotate-y-value">0°</span>
+                            </div>
+                            <input type="range" id="joint-rotate-y" min="-180" max="180" value="0">
+                        </div>
+                        
+                        <div class="slider-container" id="joint-axis-z" style="display: none;">
+                            <div class="slider-label">
+                                <span id="joint-axis-z-label">회전 Z</span>
+                                <span id="joint-rotate-z-value">0°</span>
+                            </div>
+                            <input type="range" id="joint-rotate-z" min="-180" max="180" value="0">
+                        </div>
+                        
+                        <div class="controls">
+                            <button id="reset-joint-rotation">관절 초기화</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 포즈 저장/관리 -->
+            <div class="accordion-section">
+                <div class="accordion-header" data-target="pose-management">
+                    <span class="accordion-title">💾 포즈 관리</span>
+                    <span class="accordion-arrow">▼</span>
+                </div>
+                <div class="accordion-content" id="pose-management">
+                    <div class="controls">
+                        <div class="pose-save-container">
+                            <input type="text" id="pose-name" placeholder="포즈 이름 입력" maxlength="20">
+                            <button id="save-pose">포즈 저장</button>
+                        </div>
+                        <div class="pose-list-container">
+                            <select id="saved-poses">
+                                <option value="">저장된 포즈 없음</option>
+                            </select>
+                            <div class="pose-buttons">
+                                <button id="load-pose" disabled>불러오기</button>
+                                <button id="delete-pose" disabled>삭제</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 애니메이션 -->
+            <div class="accordion-section">
+                <div class="accordion-header" data-target="animation-control">
+                    <span class="accordion-title">🎬 애니메이션</span>
+                    <span class="accordion-arrow">▼</span>
+                </div>
+                <div class="accordion-content" id="animation-control">
+                    <div class="controls">
+                        <div class="animation-controls">
+                            <button id="add-to-animation" disabled>애니메이션에 추가</button>
+                            <button id="clear-animation">애니메이션 클리어</button>
+                        </div>
+                        <div class="animation-timeline">
+                            <div class="timeline-label">타임라인 (<span id="keyframe-count">0</span>개 키프레임)</div>
+                            <div id="timeline-container">
+                                <div id="timeline-bar"></div>
+                            </div>
+                        </div>
+                        <div class="animation-playback">
+                            <button id="play-animation" disabled>재생</button>
+                            <button id="stop-animation" disabled>정지</button>
+                            <div class="slider-container">
+                                <div class="slider-label">
+                                    <span>재생 속도</span>
+                                    <span id="animation-speed-value">1.0x</span>
+                                </div>
+                                <input type="range" id="animation-speed" min="0.1" max="2.0" value="1.0" step="0.1">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 뷰 조작 -->
+            <div class="accordion-section">
+                <div class="accordion-header" data-target="view-control">
+                    <span class="accordion-title">📷 뷰 조작</span>
+                    <span class="accordion-arrow">▼</span>
+                </div>
+                <div class="accordion-content" id="view-control">
             <div class="slider-controls">
                 <div class="slider-container">
                     <div class="slider-label">
@@ -91,6 +229,14 @@
                 
                 <div class="slider-container">
                     <div class="slider-label">
+                        <span>회전 Z</span>
+                        <span id="rotate-z-value">0°</span>
+                    </div>
+                    <input type="range" id="rotate-z" min="-180" max="180" value="0">
+                </div>
+                
+                <div class="slider-container">
+                    <div class="slider-label">
                         <span>크기</span>
                         <span id="scale-value">1.0x</span>
                     </div>
@@ -99,7 +245,9 @@
             </div>
             
             <div class="controls">
-                <button id="reset-button">초기화</button>
+                        <button id="reset-button">전체 초기화</button>
+                    </div>
+                </div>
             </div>
             
             <div id="debug-info" style="display: none;">

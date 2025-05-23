@@ -1,9 +1,9 @@
 /**
  * @fileoverview 3D 인체 모델 정의 및 렌더링 모듈
- * @description 계층적 모델 구조와 각 포즈를 관리하며, 유기적 형태의 
- *              올림픽 픽토그램 스타일 인체 모델을 렌더링합니다.
+ * @description 계층적 구조의 올림픽 픽토그램 스타일 인체 모델을 렌더링합니다.
+ *              포즈 제어와 애니메이션을 지원하는 유기적 형태의 3D 모델입니다.
  * @author SCE433 Computer Graphics Team
- * @version 2.2.0 - 유기적 형태 개선 (평면 픽토그램 부풀린 효과)
+ * @version 3.0.0 - 리팩토링 및 코드 최적화
  */
 
 /**
@@ -19,14 +19,14 @@ const LIMB_COLOR = vec4(0.12, 0.25, 0.69, 1.0);  // 올림픽 블루 (머리, �
  * @constant {Object} BODY_PARTS - 각 신체 부위의 크기 정보
  */
 const BODY_PARTS = {
-    HEAD: { width: 0.18, height: 0.15, depth: 0.15 },    // 타원형 머리
-    TORSO: { width: 0.2, height: 0.35, depth: 0.12 },    // 조끼 형태 몸통
-    UPPER_ARM: { topRadius: 0.04, bottomRadius: 0.035, height: 0.22 },  // 끝이 둥근 위팔
-    LOWER_ARM: { topRadius: 0.035, bottomRadius: 0.025, height: 0.22 }, // 끝이 둥근 아래팔
-    HAND: { radius: 0.04, height: 0.08 },                // 타원체 손
-    UPPER_LEG: { topRadius: 0.05, bottomRadius: 0.04, height: 0.27 },   // 끝이 둥근 허벅지
-    LOWER_LEG: { topRadius: 0.04, bottomRadius: 0.03, height: 0.27 },   // 끝이 둥근 종아리
-    FOOT: { width: 0.12, height: 0.05, depth: 0.08 }     // 발 형태
+    HEAD: { width: 0.2, height: 0.18, depth: 0.18 },    // 더 큰 타원형 머리
+    TORSO: { width: 0.25, height: 0.4, depth: 0.15 },    // 더 넓고 두꺼운 몸통
+    UPPER_ARM: { topRadius: 0.055, bottomRadius: 0.045, height: 0.16 },  // 더 짧고 두꺼운 위팔
+    LOWER_ARM: { topRadius: 0.045, bottomRadius: 0.035, height: 0.15 }, // 더 짧고 두꺼운 아래팔
+    HAND: { radius: 0.05, height: 0.09 },                // 더 큰 손
+    UPPER_LEG: { topRadius: 0.065, bottomRadius: 0.05, height: 0.28 },   // 더 두꺼운 허벅지
+    LOWER_LEG: { topRadius: 0.06, bottomRadius: 0.05, height: 0.24 },   // 수정: 두께 증가, 길이 약간 감소
+    FOOT: { width: 0.16, height: 0.05, depth: 0.14 }     // 수정: 길이·깊이 증가
 };
 
 /**
@@ -309,7 +309,7 @@ class HumanModel {
     }
     
     /**
-     * 발 형태 생성
+     * 발 형태 생성 (픽토그램 스타일 - 앞뒤 경사)
      * @method createFoot
      * @param {number} width - 너비
      * @param {number} height - 높이
@@ -321,29 +321,29 @@ class HumanModel {
         const h = height / 2;
         const d = depth / 2;
         
-        // 신발 형태의 발
+        // 신발 형태의 발 (좌우 옆면만 패임, 앞뒤는 경사)
         const vertices = [
-            // 뒤꿈치 부분
-            vec4(-w * 0.6, -h, -d * 0.3, 1.0),
-            vec4(w * 0.6, -h, -d * 0.3, 1.0),
-            vec4(-w * 0.6, h, -d * 0.3, 1.0),
-            vec4(w * 0.6, h, -d * 0.3, 1.0),
-            // 발가락 부분 (더 넓고 앞으로)
-            vec4(-w, -h, d, 1.0),
-            vec4(w, -h, d, 1.0),
-            vec4(-w, h, d, 1.0),
-            vec4(w, h, d, 1.0)
+            // 뒤꿈치 부분 (둥근 경사, 좌우만 좁음)
+            vec4(-w * 0.4, -h, -d * 0.7, 1.0),       // 뒤꿈치 좌측 (짧게)
+            vec4(w * 0.4, -h, -d * 0.7, 1.0),        // 뒤꿈치 우측 (짧게)
+            vec4(-w * 0.4, h * 0.6, -d * 0.7, 1.0),  // 뒤꿈치 위 좌측 (낮게)
+            vec4(w * 0.4, h * 0.6, -d * 0.7, 1.0),   // 뒤꿈치 위 우측 (낮게)
+            // 발가락 부분 (올라가는 경사, 좌우만 좁음)
+            vec4(-w * 0.4, -h * 0.5, d, 1.0),        // 발가락 좌측 (올라감)
+            vec4(w * 0.4, -h * 0.5, d, 1.0),         // 발가락 우측 (올라감)
+            vec4(-w * 0.4, h, d * 0.8, 1.0),         // 발가락 위 좌측 (높게)
+            vec4(w * 0.4, h, d * 0.8, 1.0)           // 발가락 위 우측 (높게)
         ];
         
         const indices = [
-            // 아래면
+            // 아래면 (경사)
             0, 4, 1, 1, 4, 5,
-            // 위면
+            // 위면 (경사)
             2, 3, 6, 6, 3, 7,
             // 측면들
             0, 2, 4, 4, 2, 6,
             1, 5, 3, 3, 5, 7,
-            // 앞뒤면
+            // 앞뒤면 (경사)
             4, 6, 5, 5, 6, 7,
             1, 3, 0, 0, 3, 2
         ];
@@ -528,7 +528,7 @@ class HumanModel {
     }
     
     /**
-     * 부드러운 관절 연결부 생성
+     * 부드러운 관절 연결부 생성 (개선된 버전)
      * @method createSmoothJoint
      * @param {number} radius1 - 첫 번째 부위 반지름
      * @param {number} radius2 - 두 번째 부위 반지름
@@ -536,15 +536,15 @@ class HumanModel {
      * @param {number} segments - 분할 수
      * @returns {Object} vertices와 indices 배열
      */
-    createSmoothJoint(radius1, radius2, blendLength, segments = 12) {
+    createSmoothJoint(radius1, radius2, blendLength, segments = 16) {
         const vertices = [];
         const indices = [];
         
-        const steps = 8;
+        const steps = 12; // 더 세밀한 블렌딩
         for (let i = 0; i <= steps; i++) {
             const t = i / steps;
-            // 부드러운 곡선 보간 (ease-in-out)
-            const smoothT = t * t * (3.0 - 2.0 * t);
+            // 더 부드러운 곡선 보간 (smootherstep)
+            const smoothT = t * t * t * (t * (t * 6 - 15) + 10);
             const radius = radius1 + smoothT * (radius2 - radius1);
             const y = -blendLength/2 + t * blendLength;
             
@@ -575,360 +575,345 @@ class HumanModel {
     }
     
     /**
-     * 서 있는 포즈 렌더링 (유기적 형태)
-     * @method drawStanding
+     * 특정 노드에 변환 적용 (간소화된 버전)
+     * @method applyNodeTransform
+     * @param {string} nodeName - 노드 이름
      */
-    drawStanding() {
-        // 몸통 (조끼 형태 - 흰색)
+    applyNodeTransform(nodeName) {
+        const t = this.nodeTransforms[nodeName];
+        if (!t) return;
+        
+        // 이동
+        if (t.translation.some(v => v !== 0)) {
+            modelViewMatrix = mult(modelViewMatrix, translate(...t.translation));
+        }
+        
+        // 회전 (Z -> Y -> X 순서)
+        if (t.rotation[2]) modelViewMatrix = mult(modelViewMatrix, rotateZ(t.rotation[2]));
+        if (t.rotation[1]) modelViewMatrix = mult(modelViewMatrix, rotateY(t.rotation[1]));
+        if (t.rotation[0]) modelViewMatrix = mult(modelViewMatrix, rotateX(t.rotation[0]));
+        
+        // 스케일
+        if (t.scale.some(v => v !== 1)) {
+            modelViewMatrix = mult(modelViewMatrix, scale(...t.scale));
+        }
+    }
+    
+    /**
+     * 특정 노드의 변환값 설정
+     * @method setNodeTransform
+     * @param {string} nodeName - 노드 이름
+     * @param {vec3} translation - 이동값
+     * @param {vec3} rotation - 회전값 (도 단위)
+     * @param {vec3} scale - 크기 조절값
+     */
+    setNodeTransform(nodeName, translation = vec3(0, 0, 0), rotation = vec3(0, 0, 0), scale = vec3(1, 1, 1)) {
+        if (!this.nodeTransforms[nodeName]) return;
+        
+        this.nodeTransforms[nodeName] = {
+            translation: translation,
+            rotation: rotation,
+            scale: scale
+        };
+    }
+    
+    /**
+     * 부위별 회전을 적용한 서 있는 포즈 렌더링 (계층적 구조)
+     * @method drawStandingWithTransforms
+     */
+    drawStandingWithTransforms() {
+        // 몸통 (조끼 형태 - 흰색) - 루트 노드
         this.pushMatrix();
+        this.applyNodeTransform('TORSO');
         const torsoGeometry = this.createVest(BODY_PARTS.TORSO.width, BODY_PARTS.TORSO.height, BODY_PARTS.TORSO.depth);
         this.drawGeometry(torsoGeometry, BODY_COLOR);
         
-        // 머리 (타원형 - 파란색)
+        // 몸통 뒷면 봉제선 그리기
+        this.drawBackSeam(BODY_PARTS.TORSO.width, BODY_PARTS.TORSO.height, BODY_PARTS.TORSO.depth);
+        
+        // ========== 머리 (몸통의 자식) ==========
         this.pushMatrix();
         modelViewMatrix = mult(modelViewMatrix, translate(0, BODY_PARTS.TORSO.height/2 + BODY_PARTS.HEAD.height/2, 0));
+        this.applyNodeTransform('HEAD'); // 머리 자체 회전
         const headGeometry = this.createEllipsoid(BODY_PARTS.HEAD.width/2, BODY_PARTS.HEAD.height/2, BODY_PARTS.HEAD.depth/2);
         this.drawGeometry(headGeometry, LIMB_COLOR);
-        this.popMatrix();
+        this.popMatrix(); // 머리 끝
         
-        // 왼쪽 어깨 영역 (부드러운 연결)
+        // ========== 왼팔 시스템 (몸통의 자식) ==========
         this.pushMatrix();
         const leftShoulderX = -BODY_PARTS.TORSO.width/2;
         const shoulderY = BODY_PARTS.TORSO.height/3;
         modelViewMatrix = mult(modelViewMatrix, translate(leftShoulderX, shoulderY, 0));
+        this.applyNodeTransform('LEFT_UPPER_ARM'); // ⭐ 어깨 회전 - 팔 전체에 영향
         
-        // 왼쪽 위팔 (캡슐 형태)
+        // 왼쪽 위팔 그리기
         this.pushMatrix();
         modelViewMatrix = mult(modelViewMatrix, translate(0, -BODY_PARTS.UPPER_ARM.height/2, 0));
         const leftUpperArmGeometry = this.createCapsule(BODY_PARTS.UPPER_ARM.topRadius, BODY_PARTS.UPPER_ARM.bottomRadius, BODY_PARTS.UPPER_ARM.height);
         this.drawGeometry(leftUpperArmGeometry, LIMB_COLOR);
+        this.popMatrix();
+        
+        // 팔꿈치 위치로 이동 (어깨 회전 상속됨)
+        modelViewMatrix = mult(modelViewMatrix, translate(0, -BODY_PARTS.UPPER_ARM.height, 0));
         
         // 팔꿈치 연결부
-        this.pushMatrix();
-        modelViewMatrix = mult(modelViewMatrix, translate(0, -BODY_PARTS.UPPER_ARM.height/2, 0));
-        const elbowJointGeometry = this.createSmoothJoint(BODY_PARTS.UPPER_ARM.bottomRadius, BODY_PARTS.LOWER_ARM.topRadius, 0.05);
+        const elbowJointGeometry = this.createSmoothJoint(BODY_PARTS.UPPER_ARM.bottomRadius, BODY_PARTS.LOWER_ARM.topRadius, 0.08);
         this.drawGeometry(elbowJointGeometry, LIMB_COLOR);
         
-        // 왼쪽 아래팔
+        // 왼쪽 아래팔 (팔꿈치 관절) - 어깨 회전 + 팔꿈치 회전
         this.pushMatrix();
-        modelViewMatrix = mult(modelViewMatrix, translate(0, -BODY_PARTS.LOWER_ARM.height/2 - 0.025, 0));
+        this.applyNodeTransform('LEFT_LOWER_ARM'); // ⭐ 팔꿈치 회전 (어깨 회전에 추가)
+        modelViewMatrix = mult(modelViewMatrix, translate(0, -BODY_PARTS.LOWER_ARM.height/2 - 0.04, 0));
         const leftLowerArmGeometry = this.createCapsule(BODY_PARTS.LOWER_ARM.topRadius, BODY_PARTS.LOWER_ARM.bottomRadius, BODY_PARTS.LOWER_ARM.height);
         this.drawGeometry(leftLowerArmGeometry, LIMB_COLOR);
         
-        // 손목 연결부
-        this.pushMatrix();
+        // 손목 위치로 이동 (어깨+팔꿈치 회전 상속됨)
         modelViewMatrix = mult(modelViewMatrix, translate(0, -BODY_PARTS.LOWER_ARM.height/2, 0));
-        const wristJointGeometry = this.createSmoothJoint(BODY_PARTS.LOWER_ARM.bottomRadius, BODY_PARTS.HAND.radius, 0.03);
+        
+        // 손목 연결부
+        const wristJointGeometry = this.createSmoothJoint(BODY_PARTS.LOWER_ARM.bottomRadius, BODY_PARTS.HAND.radius * 0.8, 0.05);
         this.drawGeometry(wristJointGeometry, LIMB_COLOR);
         
-        // 왼손 (유기적 형태)
+        // 왼손 (손목 관절) - 어깨+팔꿈치+손목 회전
         this.pushMatrix();
-        modelViewMatrix = mult(modelViewMatrix, translate(0, -BODY_PARTS.HAND.height/2 - 0.015, 0));
-        const leftHandGeometry = this.createOrganicHand(BODY_PARTS.HAND.radius, BODY_PARTS.HAND.height);
+        this.applyNodeTransform('LEFT_HAND'); // ⭐ 손목 회전 (어깨+팔꿈치 회전에 추가)
+        modelViewMatrix = mult(modelViewMatrix, translate(0, -BODY_PARTS.HAND.height/2 - 0.025, 0));
+        const leftHandGeometry = this.createCapsule(BODY_PARTS.HAND.radius * 0.8, BODY_PARTS.HAND.radius * 0.6, BODY_PARTS.HAND.height);
         this.drawGeometry(leftHandGeometry, LIMB_COLOR);
-        this.popMatrix(); // 손
-        this.popMatrix(); // 손목
-        this.popMatrix(); // 아래팔
-        this.popMatrix(); // 팔꿈치
-        this.popMatrix(); // 위팔
-        this.popMatrix(); // 어깨
+        this.popMatrix(); // 왼손 끝
+        this.popMatrix(); // 왼쪽 아래팔 끝
+        this.popMatrix(); // 왼팔 시스템 끝 (어깨 회전 범위 끝)
         
-        // 오른쪽 어깨 영역 (부드러운 연결)
+        // ========== 오른팔 시스템 (몸통의 자식) ==========
         this.pushMatrix();
         const rightShoulderX = BODY_PARTS.TORSO.width/2;
         modelViewMatrix = mult(modelViewMatrix, translate(rightShoulderX, shoulderY, 0));
+        this.applyNodeTransform('RIGHT_UPPER_ARM'); // ⭐ 어깨 회전 - 팔 전체에 영향
         
-        // 오른쪽 위팔 (캡슐 형태)
+        // 오른쪽 위팔 그리기
         this.pushMatrix();
         modelViewMatrix = mult(modelViewMatrix, translate(0, -BODY_PARTS.UPPER_ARM.height/2, 0));
         const rightUpperArmGeometry = this.createCapsule(BODY_PARTS.UPPER_ARM.topRadius, BODY_PARTS.UPPER_ARM.bottomRadius, BODY_PARTS.UPPER_ARM.height);
         this.drawGeometry(rightUpperArmGeometry, LIMB_COLOR);
+        this.popMatrix();
+        
+        // 팔꿈치 위치로 이동 (어깨 회전 상속됨)
+        modelViewMatrix = mult(modelViewMatrix, translate(0, -BODY_PARTS.UPPER_ARM.height, 0));
         
         // 팔꿈치 연결부
-        this.pushMatrix();
-        modelViewMatrix = mult(modelViewMatrix, translate(0, -BODY_PARTS.UPPER_ARM.height/2, 0));
-        const rightElbowJointGeometry = this.createSmoothJoint(BODY_PARTS.UPPER_ARM.bottomRadius, BODY_PARTS.LOWER_ARM.topRadius, 0.05);
+        const rightElbowJointGeometry = this.createSmoothJoint(BODY_PARTS.UPPER_ARM.bottomRadius, BODY_PARTS.LOWER_ARM.topRadius, 0.08);
         this.drawGeometry(rightElbowJointGeometry, LIMB_COLOR);
         
-        // 오른쪽 아래팔
+        // 오른쪽 아래팔 (팔꿈치 관절) - 어깨 회전 + 팔꿈치 회전
         this.pushMatrix();
-        modelViewMatrix = mult(modelViewMatrix, translate(0, -BODY_PARTS.LOWER_ARM.height/2 - 0.025, 0));
+        this.applyNodeTransform('RIGHT_LOWER_ARM'); // ⭐ 팔꿈치 회전 (어깨 회전에 추가)
+        modelViewMatrix = mult(modelViewMatrix, translate(0, -BODY_PARTS.LOWER_ARM.height/2 - 0.04, 0));
         const rightLowerArmGeometry = this.createCapsule(BODY_PARTS.LOWER_ARM.topRadius, BODY_PARTS.LOWER_ARM.bottomRadius, BODY_PARTS.LOWER_ARM.height);
         this.drawGeometry(rightLowerArmGeometry, LIMB_COLOR);
         
-        // 손목 연결부
-        this.pushMatrix();
+        // 손목 위치로 이동 (어깨+팔꿈치 회전 상속됨)
         modelViewMatrix = mult(modelViewMatrix, translate(0, -BODY_PARTS.LOWER_ARM.height/2, 0));
-        const rightWristJointGeometry = this.createSmoothJoint(BODY_PARTS.LOWER_ARM.bottomRadius, BODY_PARTS.HAND.radius, 0.03);
+        
+        // 손목 연결부
+        const rightWristJointGeometry = this.createSmoothJoint(BODY_PARTS.LOWER_ARM.bottomRadius, BODY_PARTS.HAND.radius * 0.8, 0.05);
         this.drawGeometry(rightWristJointGeometry, LIMB_COLOR);
         
-        // 오른손 (유기적 형태)
+        // 오른손 (손목 관절) - 어깨+팔꿈치+손목 회전
         this.pushMatrix();
-        modelViewMatrix = mult(modelViewMatrix, translate(0, -BODY_PARTS.HAND.height/2 - 0.015, 0));
-        const rightHandGeometry = this.createOrganicHand(BODY_PARTS.HAND.radius, BODY_PARTS.HAND.height);
+        this.applyNodeTransform('RIGHT_HAND'); // ⭐ 손목 회전 (어깨+팔꿈치 회전에 추가)
+        modelViewMatrix = mult(modelViewMatrix, translate(0, -BODY_PARTS.HAND.height/2 - 0.025, 0));
+        const rightHandGeometry = this.createCapsule(BODY_PARTS.HAND.radius * 0.8, BODY_PARTS.HAND.radius * 0.6, BODY_PARTS.HAND.height);
         this.drawGeometry(rightHandGeometry, LIMB_COLOR);
-        this.popMatrix(); // 손
-        this.popMatrix(); // 손목
-        this.popMatrix(); // 아래팔
-        this.popMatrix(); // 팔꿈치
-        this.popMatrix(); // 위팔
-        this.popMatrix(); // 어깨
+        this.popMatrix(); // 오른손 끝
+        this.popMatrix(); // 오른쪽 아래팔 끝
+        this.popMatrix(); // 오른팔 시스템 끝 (어깨 회전 범위 끝)
         
-        // 왼쪽 다리 시스템 (유기적 연결)
+        // ========== 왼다리 시스템 (몸통의 자식) ==========
         this.pushMatrix();
         const leftHipX = -BODY_PARTS.TORSO.width/4;
         const hipY = -BODY_PARTS.TORSO.height/2;
         modelViewMatrix = mult(modelViewMatrix, translate(leftHipX, hipY, 0));
+        this.applyNodeTransform('LEFT_UPPER_LEG'); // ⭐ 엉덩이 회전 - 다리 전체에 영향
         
-        // 왼쪽 허벅지
+        // 왼쪽 허벅지 그리기
         this.pushMatrix();
         modelViewMatrix = mult(modelViewMatrix, translate(0, -BODY_PARTS.UPPER_LEG.height/2, 0));
         const leftUpperLegGeometry = this.createCapsule(BODY_PARTS.UPPER_LEG.topRadius, BODY_PARTS.UPPER_LEG.bottomRadius, BODY_PARTS.UPPER_LEG.height);
         this.drawGeometry(leftUpperLegGeometry, LIMB_COLOR);
+        this.popMatrix();
+        
+        // 무릎 위치로 이동 (엉덩이 회전 상속됨)
+        modelViewMatrix = mult(modelViewMatrix, translate(0, -BODY_PARTS.UPPER_LEG.height, 0));
         
         // 무릎 연결부
-        this.pushMatrix();
-        modelViewMatrix = mult(modelViewMatrix, translate(0, -BODY_PARTS.UPPER_LEG.height/2, 0));
-        const leftKneeJointGeometry = this.createSmoothJoint(BODY_PARTS.UPPER_LEG.bottomRadius, BODY_PARTS.LOWER_LEG.topRadius, 0.06);
+        const leftKneeJointGeometry = this.createSmoothJoint(BODY_PARTS.UPPER_LEG.bottomRadius, BODY_PARTS.LOWER_LEG.topRadius, 0.08);
         this.drawGeometry(leftKneeJointGeometry, LIMB_COLOR);
         
-        // 왼쪽 종아리
+        // 왼쪽 종아리 (무릎 관절) - 엉덩이 회전 + 무릎 회전
         this.pushMatrix();
-        modelViewMatrix = mult(modelViewMatrix, translate(0, -BODY_PARTS.LOWER_LEG.height/2 - 0.03, 0));
+        this.applyNodeTransform('LEFT_LOWER_LEG'); // ⭐ 무릎 회전 (엉덩이 회전에 추가)
+        modelViewMatrix = mult(modelViewMatrix, translate(0, -BODY_PARTS.LOWER_LEG.height/2 - 0.04, 0));
         const leftLowerLegGeometry = this.createCapsule(BODY_PARTS.LOWER_LEG.topRadius, BODY_PARTS.LOWER_LEG.bottomRadius, BODY_PARTS.LOWER_LEG.height);
         this.drawGeometry(leftLowerLegGeometry, LIMB_COLOR);
         
-        // 발목 연결부 및 발
-        this.pushMatrix();
+        // 발목 위치로 이동 (엉덩이+무릎 회전 상속됨)
         modelViewMatrix = mult(modelViewMatrix, translate(0, -BODY_PARTS.LOWER_LEG.height/2 - BODY_PARTS.FOOT.height/2, 0));
+        
+        // 왼발 (발목 관절) - 엉덩이+무릎+발목 회전
+        this.pushMatrix();
+        this.applyNodeTransform('LEFT_FOOT'); // ⭐ 발목 회전 (엉덩이+무릎 회전에 추가)
         const leftFootGeometry = this.createFoot(BODY_PARTS.FOOT.width, BODY_PARTS.FOOT.height, BODY_PARTS.FOOT.depth);
         this.drawGeometry(leftFootGeometry, BODY_COLOR);
-        this.popMatrix(); // 발
-        this.popMatrix(); // 종아리
-        this.popMatrix(); // 무릎
-        this.popMatrix(); // 허벅지
-        this.popMatrix(); // 허리
+        this.popMatrix(); // 왼발 끝
+        this.popMatrix(); // 왼쪽 종아리 끝
+        this.popMatrix(); // 왼다리 시스템 끝 (엉덩이 회전 범위 끝)
         
-        // 오른쪽 다리 시스템 (유기적 연결)
+        // ========== 오른다리 시스템 (몸통의 자식) ==========
         this.pushMatrix();
         const rightHipX = BODY_PARTS.TORSO.width/4;
         modelViewMatrix = mult(modelViewMatrix, translate(rightHipX, hipY, 0));
+        this.applyNodeTransform('RIGHT_UPPER_LEG'); // ⭐ 엉덩이 회전 - 다리 전체에 영향
         
-        // 오른쪽 허벅지
+        // 오른쪽 허벅지 그리기
         this.pushMatrix();
         modelViewMatrix = mult(modelViewMatrix, translate(0, -BODY_PARTS.UPPER_LEG.height/2, 0));
         const rightUpperLegGeometry = this.createCapsule(BODY_PARTS.UPPER_LEG.topRadius, BODY_PARTS.UPPER_LEG.bottomRadius, BODY_PARTS.UPPER_LEG.height);
         this.drawGeometry(rightUpperLegGeometry, LIMB_COLOR);
+        this.popMatrix();
+        
+        // 무릎 위치로 이동 (엉덩이 회전 상속됨)
+        modelViewMatrix = mult(modelViewMatrix, translate(0, -BODY_PARTS.UPPER_LEG.height, 0));
         
         // 무릎 연결부
-        this.pushMatrix();
-        modelViewMatrix = mult(modelViewMatrix, translate(0, -BODY_PARTS.UPPER_LEG.height/2, 0));
-        const rightKneeJointGeometry = this.createSmoothJoint(BODY_PARTS.UPPER_LEG.bottomRadius, BODY_PARTS.LOWER_LEG.topRadius, 0.06);
+        const rightKneeJointGeometry = this.createSmoothJoint(BODY_PARTS.UPPER_LEG.bottomRadius, BODY_PARTS.LOWER_LEG.topRadius, 0.08);
         this.drawGeometry(rightKneeJointGeometry, LIMB_COLOR);
         
-        // 오른쪽 종아리
+        // 오른쪽 종아리 (무릎 관절) - 엉덩이 회전 + 무릎 회전
         this.pushMatrix();
-        modelViewMatrix = mult(modelViewMatrix, translate(0, -BODY_PARTS.LOWER_LEG.height/2 - 0.03, 0));
+        this.applyNodeTransform('RIGHT_LOWER_LEG'); // ⭐ 무릎 회전 (엉덩이 회전에 추가)
+        modelViewMatrix = mult(modelViewMatrix, translate(0, -BODY_PARTS.LOWER_LEG.height/2 - 0.04, 0));
         const rightLowerLegGeometry = this.createCapsule(BODY_PARTS.LOWER_LEG.topRadius, BODY_PARTS.LOWER_LEG.bottomRadius, BODY_PARTS.LOWER_LEG.height);
         this.drawGeometry(rightLowerLegGeometry, LIMB_COLOR);
         
-        // 발목 연결부 및 발
-        this.pushMatrix();
+        // 발목 위치로 이동 (엉덩이+무릎 회전 상속됨)
         modelViewMatrix = mult(modelViewMatrix, translate(0, -BODY_PARTS.LOWER_LEG.height/2 - BODY_PARTS.FOOT.height/2, 0));
+        
+        // 오른발 (발목 관절) - 엉덩이+무릎+발목 회전
+        this.pushMatrix();
+        this.applyNodeTransform('RIGHT_FOOT'); // ⭐ 발목 회전 (엉덩이+무릎 회전에 추가)
         const rightFootGeometry = this.createFoot(BODY_PARTS.FOOT.width, BODY_PARTS.FOOT.height, BODY_PARTS.FOOT.depth);
         this.drawGeometry(rightFootGeometry, BODY_COLOR);
-        this.popMatrix(); // 발
-        this.popMatrix(); // 종아리
-        this.popMatrix(); // 무릎
-        this.popMatrix(); // 허벅지
-        this.popMatrix(); // 허리
+        this.popMatrix(); // 오른발 끝
+        this.popMatrix(); // 오른쪽 종아리 끝
+        this.popMatrix(); // 오른다리 시스템 끝 (엉덩이 회전 범위 끝)
         
-        this.popMatrix(); // 몸통
+        this.popMatrix(); // 몸통 끝
     }
     
     /**
-     * 달리는 포즈 렌더링 (유기적 형태)
-     * @method drawRunning
+     * 몸통 뒷면 봉제선 그리기
+     * @method drawBackSeam
+     * @param {number} width - 몸통 너비
+     * @param {number} height - 몸통 높이
+     * @param {number} depth - 몸통 깊이
      */
-    drawRunning() {
-        // 몸통 (조끼 형태 - 흰색) - 앞으로 기울임
-        this.pushMatrix();
-        modelViewMatrix = mult(modelViewMatrix, rotateZ(-25));
-        const torsoGeometry = this.createVest(BODY_PARTS.TORSO.width, BODY_PARTS.TORSO.height, BODY_PARTS.TORSO.depth);
-        this.drawGeometry(torsoGeometry, BODY_COLOR);
+    drawBackSeam(width, height, depth) {
+        const h = height / 2;
+        const d = depth / 2;
         
-        // 머리 (타원형 - 파란색)
-        this.pushMatrix();
-        modelViewMatrix = mult(modelViewMatrix, translate(0, BODY_PARTS.TORSO.height/2 + BODY_PARTS.HEAD.height/2, 0));
-        modelViewMatrix = mult(modelViewMatrix, rotateZ(15));
-        const headGeometry = this.createEllipsoid(BODY_PARTS.HEAD.width/2, BODY_PARTS.HEAD.height/2, BODY_PARTS.HEAD.depth/2);
-        this.drawGeometry(headGeometry, LIMB_COLOR);
-        this.popMatrix();
+        // 조끼 형태의 뒷면 중앙선
+        const topHeight = h * 0.7;  // 어깨 높이
+        const neckHeight = h;       // 목 높이
         
-        // 왼쪽 어깨 (앞으로 뻗는 팔 - 유기적)
-        this.pushMatrix();
-        const leftShoulderX = -BODY_PARTS.TORSO.width/2;
-        const shoulderY = BODY_PARTS.TORSO.height/2 - BODY_PARTS.UPPER_ARM.height/3;
-        modelViewMatrix = mult(modelViewMatrix, translate(leftShoulderX, shoulderY, 0));
-        modelViewMatrix = mult(modelViewMatrix, rotateZ(75));
+        // 봉제선 vertices (뒷면 중앙, 목에서 허리까지) - 반대편으로 수정
+        const seamVertices = [
+            vec4(0, neckHeight, d, 1.0),    // 목 중앙 (반대편)
+            vec4(0, topHeight, d, 1.0),     // 어깨선 중앙 (반대편)
+            vec4(0, -h, d, 1.0)             // 허리 중앙 (반대편)
+        ];
         
-        // 왼쪽 위팔 (캡슐)
-        this.pushMatrix();
-        modelViewMatrix = mult(modelViewMatrix, translate(0, -BODY_PARTS.UPPER_ARM.height/2, 0));
-        const leftUpperArmGeometry = this.createCapsule(BODY_PARTS.UPPER_ARM.topRadius, BODY_PARTS.UPPER_ARM.bottomRadius, BODY_PARTS.UPPER_ARM.height);
-        this.drawGeometry(leftUpperArmGeometry, LIMB_COLOR);
+        // 봉제선 색상 (어두운 파란색)
+        const seamColors = [
+            vec4(0.05, 0.1, 0.3, 1.0),  // 더 어두운 파란색
+            vec4(0.05, 0.1, 0.3, 1.0),
+            vec4(0.05, 0.1, 0.3, 1.0)
+        ];
         
-        // 팔꿈치 연결부
-        this.pushMatrix();
-        modelViewMatrix = mult(modelViewMatrix, translate(0, -BODY_PARTS.UPPER_ARM.height/2, 0));
-        modelViewMatrix = mult(modelViewMatrix, rotateZ(-90));
-        const leftElbowJointGeometry = this.createSmoothJoint(BODY_PARTS.UPPER_ARM.bottomRadius, BODY_PARTS.LOWER_ARM.topRadius, 0.05);
-        this.drawGeometry(leftElbowJointGeometry, LIMB_COLOR);
+        // 위치 데이터 업로드
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.positionBuffer);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, flatten(seamVertices), this.gl.STATIC_DRAW);
         
-        // 왼쪽 아래팔
-        this.pushMatrix();
-        modelViewMatrix = mult(modelViewMatrix, translate(0, -BODY_PARTS.LOWER_ARM.height/2 - 0.025, 0));
-        const leftLowerArmGeometry = this.createCapsule(BODY_PARTS.LOWER_ARM.topRadius, BODY_PARTS.LOWER_ARM.bottomRadius, BODY_PARTS.LOWER_ARM.height);
-        this.drawGeometry(leftLowerArmGeometry, LIMB_COLOR);
+        const vPosition = this.gl.getAttribLocation(this.program, "vPosition");
+        this.gl.vertexAttribPointer(vPosition, 4, this.gl.FLOAT, false, 0, 0);
+        this.gl.enableVertexAttribArray(vPosition);
         
-        // 손목 연결부
-        this.pushMatrix();
-        modelViewMatrix = mult(modelViewMatrix, translate(0, -BODY_PARTS.LOWER_ARM.height/2, 0));
-        const leftWristJointGeometry = this.createSmoothJoint(BODY_PARTS.LOWER_ARM.bottomRadius, BODY_PARTS.HAND.radius, 0.03);
-        this.drawGeometry(leftWristJointGeometry, LIMB_COLOR);
+        // 색상 데이터 업로드
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.colorBuffer);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, flatten(seamColors), this.gl.STATIC_DRAW);
         
-        // 왼손
-        this.pushMatrix();
-        modelViewMatrix = mult(modelViewMatrix, translate(0, -BODY_PARTS.HAND.height/2 - 0.015, 0));
-        const leftHandGeometry = this.createOrganicHand(BODY_PARTS.HAND.radius, BODY_PARTS.HAND.height);
-        this.drawGeometry(leftHandGeometry, LIMB_COLOR);
-        this.popMatrix(); // 손
-        this.popMatrix(); // 손목
-        this.popMatrix(); // 아래팔
-        this.popMatrix(); // 팔꿈치
-        this.popMatrix(); // 위팔
-        this.popMatrix(); // 어깨
+        const vColor = this.gl.getAttribLocation(this.program, "vColor");
+        this.gl.vertexAttribPointer(vColor, 4, this.gl.FLOAT, false, 0, 0);
+        this.gl.enableVertexAttribArray(vColor);
         
-        // 오른쪽 어깨 (뒤로 뻗는 팔 - 유기적)
-        this.pushMatrix();
-        const rightShoulderX = BODY_PARTS.TORSO.width/2;
-        modelViewMatrix = mult(modelViewMatrix, translate(rightShoulderX, shoulderY, 0));
-        modelViewMatrix = mult(modelViewMatrix, rotateZ(-75));
+        // 모델-뷰 행렬 업로드
+        const uModelViewMatrix = this.gl.getUniformLocation(this.program, "uModelViewMatrix");
+        this.gl.uniformMatrix4fv(uModelViewMatrix, false, flatten(modelViewMatrix));
         
-        // 오른쪽 위팔 (캡슐)
-        this.pushMatrix();
-        modelViewMatrix = mult(modelViewMatrix, translate(0, -BODY_PARTS.UPPER_ARM.height/2, 0));
-        const rightUpperArmGeometry = this.createCapsule(BODY_PARTS.UPPER_ARM.topRadius, BODY_PARTS.UPPER_ARM.bottomRadius, BODY_PARTS.UPPER_ARM.height);
-        this.drawGeometry(rightUpperArmGeometry, LIMB_COLOR);
+        // 선 굵기 설정
+        this.gl.lineWidth(3.0);
         
-        // 팔꿈치 연결부
-        this.pushMatrix();
-        modelViewMatrix = mult(modelViewMatrix, translate(0, -BODY_PARTS.UPPER_ARM.height/2, 0));
-        modelViewMatrix = mult(modelViewMatrix, rotateZ(90));
-        const rightElbowJointGeometry = this.createSmoothJoint(BODY_PARTS.UPPER_ARM.bottomRadius, BODY_PARTS.LOWER_ARM.topRadius, 0.05);
-        this.drawGeometry(rightElbowJointGeometry, LIMB_COLOR);
+        // 봉제선 그리기 (선으로)
+        this.gl.drawArrays(this.gl.LINE_STRIP, 0, seamVertices.length);
         
-        // 오른쪽 아래팔
-        this.pushMatrix();
-        modelViewMatrix = mult(modelViewMatrix, translate(0, -BODY_PARTS.LOWER_ARM.height/2 - 0.025, 0));
-        const rightLowerArmGeometry = this.createCapsule(BODY_PARTS.LOWER_ARM.topRadius, BODY_PARTS.LOWER_ARM.bottomRadius, BODY_PARTS.LOWER_ARM.height);
-        this.drawGeometry(rightLowerArmGeometry, LIMB_COLOR);
+        // 선 굵기 원래대로
+        this.gl.lineWidth(1.0);
+    }
+    
+    /**
+     * 달리기 포즈의 기본 변환값 설정
+     * @method setRunningPoseTransforms
+     */
+    setRunningPoseTransforms() {
+        // 기본 자세
+        this.setNodeTransform('TORSO', vec3(0, 0, 0), vec3(0, 0, 0), vec3(1, 1, 1));
+        this.setNodeTransform('HEAD', vec3(0, 0, 0), vec3(0, 0, 0), vec3(1, 1, 1));
         
-        // 손목 연결부
-        this.pushMatrix();
-        modelViewMatrix = mult(modelViewMatrix, translate(0, -BODY_PARTS.LOWER_ARM.height/2, 0));
-        const rightWristJointGeometry = this.createSmoothJoint(BODY_PARTS.LOWER_ARM.bottomRadius, BODY_PARTS.HAND.radius, 0.03);
-        this.drawGeometry(rightWristJointGeometry, LIMB_COLOR);
+        // 팔 동작 (좌우 반대)
+        this.setNodeTransform('LEFT_UPPER_ARM', vec3(0, 0, 0), vec3(-76, 0, 0), vec3(1, 1, 1));
+        this.setNodeTransform('LEFT_LOWER_ARM', vec3(0, 0, 0), vec3(56, 0, 0), vec3(1, 1, 1));
+        this.setNodeTransform('LEFT_HAND', vec3(0, 0, 0), vec3(-1, 11, 0), vec3(1, 1, 1));
         
-        // 오른손
-        this.pushMatrix();
-        modelViewMatrix = mult(modelViewMatrix, translate(0, -BODY_PARTS.HAND.height/2 - 0.015, 0));
-        const rightHandGeometry = this.createOrganicHand(BODY_PARTS.HAND.radius, BODY_PARTS.HAND.height);
-        this.drawGeometry(rightHandGeometry, LIMB_COLOR);
-        this.popMatrix(); // 손
-        this.popMatrix(); // 손목
-        this.popMatrix(); // 아래팔
-        this.popMatrix(); // 팔꿈치
-        this.popMatrix(); // 위팔
-        this.popMatrix(); // 어깨
+        this.setNodeTransform('RIGHT_UPPER_ARM', vec3(0, 0, 0), vec3(66, 0, 0), vec3(1, 1, 1));
+        this.setNodeTransform('RIGHT_LOWER_ARM', vec3(0, 0, 0), vec3(83, 0, 0), vec3(1, 1, 1));
+        this.setNodeTransform('RIGHT_HAND', vec3(0, 0, 0), vec3(34, 8, 0), vec3(1, 1, 1));
         
-        // 왼쪽 다리 (뒤로 - 유기적)
-        this.pushMatrix();
-        const leftHipX = -BODY_PARTS.TORSO.width/4;
-        const hipY = -BODY_PARTS.TORSO.height/2;
-        modelViewMatrix = mult(modelViewMatrix, translate(leftHipX, hipY, 0));
-        modelViewMatrix = mult(modelViewMatrix, rotateZ(50));
+        // 다리 동작 (왼다리 들어올림)
+        this.setNodeTransform('LEFT_UPPER_LEG', vec3(0, 0, 0), vec3(91, 0, 0), vec3(1, 1, 1));
+        this.setNodeTransform('LEFT_LOWER_LEG', vec3(0, 0, 0), vec3(-151, 0, 0), vec3(1, 1, 1));
+        this.setNodeTransform('LEFT_FOOT', vec3(0, 0, 0), vec3(0, 0, 0), vec3(1, 1, 1));
         
-        // 왼쪽 허벅지 (캡슐)
-        this.pushMatrix();
-        modelViewMatrix = mult(modelViewMatrix, translate(0, -BODY_PARTS.UPPER_LEG.height/2, 0));
-        const leftUpperLegGeometry = this.createCapsule(BODY_PARTS.UPPER_LEG.topRadius, BODY_PARTS.UPPER_LEG.bottomRadius, BODY_PARTS.UPPER_LEG.height);
-        this.drawGeometry(leftUpperLegGeometry, LIMB_COLOR);
-        
-        // 무릎 연결부
-        this.pushMatrix();
-        modelViewMatrix = mult(modelViewMatrix, translate(0, -BODY_PARTS.UPPER_LEG.height/2, 0));
-        modelViewMatrix = mult(modelViewMatrix, rotateZ(-70));
-        const leftKneeJointGeometry = this.createSmoothJoint(BODY_PARTS.UPPER_LEG.bottomRadius, BODY_PARTS.LOWER_LEG.topRadius, 0.06);
-        this.drawGeometry(leftKneeJointGeometry, LIMB_COLOR);
-        
-        // 왼쪽 종아리
-        this.pushMatrix();
-        modelViewMatrix = mult(modelViewMatrix, translate(0, -BODY_PARTS.LOWER_LEG.height/2 - 0.03, 0));
-        const leftLowerLegGeometry = this.createCapsule(BODY_PARTS.LOWER_LEG.topRadius, BODY_PARTS.LOWER_LEG.bottomRadius, BODY_PARTS.LOWER_LEG.height);
-        this.drawGeometry(leftLowerLegGeometry, LIMB_COLOR);
-        
-        // 발목 및 발
-        this.pushMatrix();
-        modelViewMatrix = mult(modelViewMatrix, translate(0, -BODY_PARTS.LOWER_LEG.height/2, 0));
-        modelViewMatrix = mult(modelViewMatrix, rotateZ(20));
-        modelViewMatrix = mult(modelViewMatrix, translate(0, -BODY_PARTS.FOOT.height/2, 0));
-        const leftFootGeometry = this.createFoot(BODY_PARTS.FOOT.width, BODY_PARTS.FOOT.height, BODY_PARTS.FOOT.depth);
-        this.drawGeometry(leftFootGeometry, BODY_COLOR);
-        this.popMatrix(); // 발
-        this.popMatrix(); // 종아리
-        this.popMatrix(); // 무릎
-        this.popMatrix(); // 허벅지
-        this.popMatrix(); // 허리
-        
-        // 오른쪽 다리 (앞으로 - 유기적)
-        this.pushMatrix();
-        const rightHipX = BODY_PARTS.TORSO.width/4;
-        modelViewMatrix = mult(modelViewMatrix, translate(rightHipX, hipY, 0));
-        modelViewMatrix = mult(modelViewMatrix, rotateZ(-70));
-        
-        // 오른쪽 허벅지 (캡슐)
-        this.pushMatrix();
-        modelViewMatrix = mult(modelViewMatrix, translate(0, -BODY_PARTS.UPPER_LEG.height/2, 0));
-        const rightUpperLegGeometry = this.createCapsule(BODY_PARTS.UPPER_LEG.topRadius, BODY_PARTS.UPPER_LEG.bottomRadius, BODY_PARTS.UPPER_LEG.height);
-        this.drawGeometry(rightUpperLegGeometry, LIMB_COLOR);
-        
-        // 무릎 연결부
-        this.pushMatrix();
-        modelViewMatrix = mult(modelViewMatrix, translate(0, -BODY_PARTS.UPPER_LEG.height/2, 0));
-        modelViewMatrix = mult(modelViewMatrix, rotateZ(110));
-        const rightKneeJointGeometry = this.createSmoothJoint(BODY_PARTS.UPPER_LEG.bottomRadius, BODY_PARTS.LOWER_LEG.topRadius, 0.06);
-        this.drawGeometry(rightKneeJointGeometry, LIMB_COLOR);
-        
-        // 오른쪽 종아리
-        this.pushMatrix();
-        modelViewMatrix = mult(modelViewMatrix, translate(0, -BODY_PARTS.LOWER_LEG.height/2 - 0.03, 0));
-        const rightLowerLegGeometry = this.createCapsule(BODY_PARTS.LOWER_LEG.topRadius, BODY_PARTS.LOWER_LEG.bottomRadius, BODY_PARTS.LOWER_LEG.height);
-        this.drawGeometry(rightLowerLegGeometry, LIMB_COLOR);
-        
-        // 발목 및 발
-        this.pushMatrix();
-        modelViewMatrix = mult(modelViewMatrix, translate(0, -BODY_PARTS.LOWER_LEG.height/2, 0));
-        modelViewMatrix = mult(modelViewMatrix, rotateZ(-40));
-        modelViewMatrix = mult(modelViewMatrix, translate(0, -BODY_PARTS.FOOT.height/2, 0));
-        const rightFootGeometry = this.createFoot(BODY_PARTS.FOOT.width, BODY_PARTS.FOOT.height, BODY_PARTS.FOOT.depth);
-        this.drawGeometry(rightFootGeometry, BODY_COLOR);
-        this.popMatrix(); // 발
-        this.popMatrix(); // 종아리
-        this.popMatrix(); // 무릎
-        this.popMatrix(); // 허벅지
-        this.popMatrix(); // 허리
-        
-        this.popMatrix(); // 몸통
+        this.setNodeTransform('RIGHT_UPPER_LEG', vec3(0, 0, 0), vec3(0, 0, 0), vec3(1, 1, 1));
+        this.setNodeTransform('RIGHT_LOWER_LEG', vec3(0, 0, 0), vec3(0, 0, 0), vec3(1, 1, 1));
+        this.setNodeTransform('RIGHT_FOOT', vec3(0, 0, 0), vec3(0, 0, 0), vec3(1, 1, 1));
+    }
+    
+    /**
+     * 모든 노드 변환 초기화
+     * @method resetAllTransforms
+     */
+    resetAllTransforms() {
+        this.initializeNodeTransforms();
+    }
+    
+    /**
+     * 렌더링 메인 메서드 (포즈 상태에 따라)
+     * @method render
+     * @param {boolean} isRunning - 달리기 포즈 여부
+     */
+    render(isRunning = false) {
+        if (isRunning) {
+            this.setRunningPoseTransforms();
+        }
+        this.drawStandingWithTransforms();
     }
 } 
