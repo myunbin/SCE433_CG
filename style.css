@@ -1,0 +1,298 @@
+/* Index.css에서 가져온 전역 설정 */
+:root {
+    --primary-color: #1e40af;
+    --primary-light: #93c5fd;
+    --secondary-color: #1e3a8a;
+    --text-primary: #1e293b;
+    --text-secondary: #475569;
+    --background-light: #f8fafc;
+    --background-white: #ffffff;
+    --shadow-sm: 0 4px 6px rgba(30, 58, 138, 0.1);
+    --shadow-md: 0 8px 15px rgba(30, 58, 138, 0.2);
+    
+    /* 파스텔 색상 팔레트 */
+    --pastel-blue: #a8c6fa;
+    --pastel-pink: #f8c8da;
+    --pastel-mint: #c1e6d6;
+    --pastel-lavender: #d8c8fa;
+    --pastel-yellow: #f8e8c8;
+    --pastel-coral: #f8c8c8;
+    --pastel-purple: #d8c8e6;
+    --pastel-green: #c8f8d8;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+        'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: var(--background-light);
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+.container {
+    display: flex;
+    flex-direction: row;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.left-panel {
+    flex: 1;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.right-panel {
+    width: 320px;
+    background-color: var(--background-white);
+    box-shadow: var(--shadow-sm);
+    padding: 20px;
+    overflow-y: auto;
+}
+
+h2 {
+    color: var(--primary-color);
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.canvas-container {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#gl-canvas {
+    border: 1px solid #ddd;
+    background-color: #f5f5f5;
+    box-shadow: var(--shadow-md);
+    max-width: 100%;
+    max-height: 80vh;
+}
+
+.section-title {
+    font-weight: bold;
+    color: var(--primary-color);
+    margin: 15px 0 10px;
+    padding-bottom: 5px;
+    border-bottom: 2px solid var(--primary-light);
+}
+
+.controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+button {
+    padding: 8px 16px;
+    background-color: var(--primary-light);
+    color: var(--primary-color);
+    border: none;
+    border-radius: 4px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s, color 0.2s;
+    flex-grow: 1;
+    text-align: center;
+}
+
+button:hover {
+    background-color: var(--pastel-blue);
+    transform: translateY(-2px);
+}
+
+button:active, button.active {
+    background-color: var(--primary-color);
+    color: white;
+    transform: translateY(1px);
+}
+
+#rotate-button {
+    background-color: var(--pastel-blue);
+}
+
+#scale-button {
+    background-color: var(--pastel-mint);
+}
+
+#color-button {
+    background-color: var(--pastel-pink);
+}
+
+#help-button {
+    background-color: var(--pastel-lavender);
+}
+
+#reset-button {
+    background-color: var(--pastel-coral);
+    color: #d32f2f;
+}
+
+.slider-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.slider-container {
+    width: 100%;
+}
+
+.slider-label {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 5px;
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+input[type="range"] {
+    width: 100%;
+    height: 6px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: #ddd;
+    outline: none;
+    border-radius: 3px;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--primary-light);
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+    background: var(--primary-color);
+}
+
+#debug-info {
+    margin-top: 20px;
+    padding: 10px;
+    background-color: #f0f0f0;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 12px;
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+/* 모달 스타일 */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    overflow: auto;
+}
+
+.modal-content {
+    background-color: var(--background-white);
+    margin: 10% auto;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: var(--shadow-md);
+    width: 80%;
+    max-width: 600px;
+    max-height: 70vh;
+    overflow-y: auto;
+    animation: modalFadeIn 0.3s;
+}
+
+@keyframes modalFadeIn {
+    from {opacity: 0; transform: translateY(-20px);}
+    to {opacity: 1; transform: translateY(0);}
+}
+
+.close {
+    color: var(--text-secondary);
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.close:hover {
+    color: var(--primary-color);
+}
+
+.modal h3 {
+    color: var(--primary-color);
+    margin-top: 0;
+}
+
+.modal h4 {
+    color: var(--primary-color);
+    margin-top: 15px;
+    margin-bottom: 5px;
+}
+
+.modal ul {
+    padding-left: 20px;
+}
+
+.modal li {
+    margin-bottom: 5px;
+}
+
+/* 색상 블록 스타일 */
+.color-block {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border-radius: 3px;
+    margin-right: 5px;
+    vertical-align: middle;
+}
+
+/* 특정 키보드 색상 표시 */
+.color-1 { background-color: var(--pastel-blue); }
+.color-2 { background-color: var(--pastel-pink); }
+.color-3 { background-color: var(--pastel-mint); }
+.color-5 { background-color: var(--pastel-lavender); }
+.color-6 { background-color: var(--pastel-yellow); }
+.color-7 { background-color: var(--pastel-coral); }
+.color-8 { background-color: var(--pastel-purple); }
+.color-9 { background-color: var(--pastel-green); }
+
+/* 반응형 스타일 */
+@media (max-width: 768px) {
+    .container {
+        flex-direction: column;
+    }
+    
+    .right-panel {
+        width: 100%;
+        max-height: 40vh;
+    }
+    
+    .left-panel {
+        flex: none;
+        padding: 10px;
+    }
+    
+    .modal-content {
+        width: 90%;
+        margin: 15% auto;
+    }
+} 
