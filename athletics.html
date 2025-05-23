@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2020 도쿄 올림픽 픽토그램 - Athletics</title>
+    <link rel="stylesheet" href="style.css">
+    
+    <!-- WebGL 셰이더 정의 -->
+    <script id="vertex-shader" type="x-shader/x-vertex">
+    attribute vec4 vPosition;
+    attribute vec4 vColor;
+    
+    uniform mat4 uModelViewMatrix;
+    uniform mat4 uProjectionMatrix;
+    
+    varying vec4 fColor;
+    
+    void main() {
+        gl_Position = uProjectionMatrix * uModelViewMatrix * vPosition;
+        fColor = vColor;
+    }
+    </script>
+    
+    <script id="fragment-shader" type="x-shader/x-fragment">
+    precision mediump float;
+    
+    varying vec4 fColor;
+    
+    void main() {
+        gl_FragColor = fColor;
+    }
+    </script>
+    
+    <!-- WebGL 유틸리티 스크립트 -->
+    <script type="text/javascript" src="Common/webgl-utils.js"></script>
+    <script type="text/javascript" src="Common/initShaders.js"></script>
+    <script type="text/javascript" src="Common/MV.js"></script>
+    
+    <!-- 모듈화된 JavaScript 파일들 -->
+    <script type="text/javascript" src="js/camera.js"></script>
+    <script type="text/javascript" src="js/model.js"></script>
+    <script type="text/javascript" src="athletics.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- 왼쪽 패널: 캔버스 -->
+        <div class="left-panel">
+            <h2>Athletics (육상)</h2>
+            <div class="canvas-container">
+                <canvas id="gl-canvas" width="600" height="600">
+                    이 브라우저는 HTML5 Canvas를 지원하지 않습니다.
+                </canvas>
+            </div>
+            <div style="margin-top: 10px; font-size: 12px; color: #666; text-align: center;">
+                <strong>드래그 조작법:</strong><br>
+                • 마우스 드래그: X/Y축 회전<br>
+                • Ctrl + 드래그: Z축 회전<br>
+                • Alt + 드래그: X축만 회전<br>
+                • Shift + 드래그: 크기 조절<br>
+                • 마우스 휠: 크기 조절
+            </div>
+        </div>
+        
+        <!-- 오른쪽 패널: 컨트롤 -->
+        <div class="right-panel">
+            <h2>컨트롤</h2>
+            
+            <div class="section-title">포즈 전환</div>
+            <div class="controls">
+                <button id="pose-toggle">달리기 포즈로 전환</button>
+            </div>
+            
+            <div class="section-title">뷰 조작</div>
+            <div class="slider-controls">
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <span>회전 X</span>
+                        <span id="rotate-x-value">0°</span>
+                    </div>
+                    <input type="range" id="rotate-x" min="-180" max="180" value="0">
+                </div>
+                
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <span>회전 Y</span>
+                        <span id="rotate-y-value">0°</span>
+                    </div>
+                    <input type="range" id="rotate-y" min="-180" max="180" value="0">
+                </div>
+                
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <span>크기</span>
+                        <span id="scale-value">1.0x</span>
+                    </div>
+                    <input type="range" id="scale" min="0.5" max="2" value="1" step="0.1">
+                </div>
+            </div>
+            
+            <div class="controls">
+                <button id="reset-button">초기화</button>
+            </div>
+            
+            <div id="debug-info" style="display: none;">
+                디버그 정보가 여기에 표시됩니다.
+            </div>
+        </div>
+    </div>
+</body>
+</html> 
