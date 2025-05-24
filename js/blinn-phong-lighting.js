@@ -23,16 +23,21 @@ class BlinnPhongLighting {
         // 유니폼 위치 저장
         this.uniforms = this.getUniformLocations();
         
-        // 기본 조명 속성
-        this.lightPosition = vec3(5.0, 5.0, 5.0);
-        this.lightAmbient = vec3(0.5, 0.5, 0.5);
-        this.lightDiffuse = vec3(0.7, 0.7, 0.7);
+        // 기본 조명 속성 (vec4로 point light, w=1) - 밝게 조정
+        this.lightPosition = vec4(2.0, 2.0, 3.0, 1.0);
+        this.lightAmbient = vec3(0.4, 0.4, 0.4);
+        this.lightDiffuse = vec3(1.0, 1.0, 1.0);
         this.lightSpecular = vec3(0.8, 0.8, 0.8);
         
-        // 기본 재질 속성
-        this.materialAmbient = vec3(0.4, 0.4, 0.4);
-        this.materialDiffuse = vec3(0.8, 0.8, 0.8);
-        this.materialSpecular = vec3(0.5, 0.5, 0.5);
+        // 거리 감쇠 계수 (ex4 스타일)
+        this.attenuationA = 1.0;  // 상수 항
+        this.attenuationB = 0.1;  // 1차 항
+        this.attenuationC = 0.01; // 2차 항
+        
+        // 기본 재질 속성 - 밝게 조정
+        this.materialAmbient = vec3(0.6, 0.6, 0.6);
+        this.materialDiffuse = vec3(1.0, 1.0, 1.0);
+        this.materialSpecular = vec3(0.7, 0.7, 0.7);
         this.materialShininess = 32.0;
         
         // 초기 유니폼 설정
@@ -57,6 +62,11 @@ class BlinnPhongLighting {
             uLightDiffuse: this.gl.getUniformLocation(this.program, "uLightDiffuse"),
             uLightSpecular: this.gl.getUniformLocation(this.program, "uLightSpecular"),
             
+            // 거리 감쇠 계수
+            uAttenuationA: this.gl.getUniformLocation(this.program, "uAttenuationA"),
+            uAttenuationB: this.gl.getUniformLocation(this.program, "uAttenuationB"),
+            uAttenuationC: this.gl.getUniformLocation(this.program, "uAttenuationC"),
+            
             // 재질 속성
             uMaterialAmbient: this.gl.getUniformLocation(this.program, "uMaterialAmbient"),
             uMaterialDiffuse: this.gl.getUniformLocation(this.program, "uMaterialDiffuse"),
@@ -71,7 +81,7 @@ class BlinnPhongLighting {
      */
     updateUniforms() {
         if (this.uniforms.uLightPosition) {
-            this.gl.uniform3fv(this.uniforms.uLightPosition, flatten(this.lightPosition));
+            this.gl.uniform4fv(this.uniforms.uLightPosition, flatten(this.lightPosition));
         }
         if (this.uniforms.uLightAmbient) {
             this.gl.uniform3fv(this.uniforms.uLightAmbient, flatten(this.lightAmbient));
@@ -82,6 +92,18 @@ class BlinnPhongLighting {
         if (this.uniforms.uLightSpecular) {
             this.gl.uniform3fv(this.uniforms.uLightSpecular, flatten(this.lightSpecular));
         }
+        
+        // 거리 감쇠 계수 업데이트
+        if (this.uniforms.uAttenuationA) {
+            this.gl.uniform1f(this.uniforms.uAttenuationA, this.attenuationA);
+        }
+        if (this.uniforms.uAttenuationB) {
+            this.gl.uniform1f(this.uniforms.uAttenuationB, this.attenuationB);
+        }
+        if (this.uniforms.uAttenuationC) {
+            this.gl.uniform1f(this.uniforms.uAttenuationC, this.attenuationC);
+        }
+        
         if (this.uniforms.uMaterialAmbient) {
             this.gl.uniform3fv(this.uniforms.uMaterialAmbient, flatten(this.materialAmbient));
         }
@@ -102,11 +124,35 @@ class BlinnPhongLighting {
      * @param {number} x - X 좌표
      * @param {number} y - Y 좌표
      * @param {number} z - Z 좌표
+     * @param {number} w - Point light (1.0) 또는 Directional light (0.0)
      */
-    setLightPosition(x, y, z) {
-        this.lightPosition = vec3(x, y, z);
+    setLightPosition(x, y, z, w = 1.0) {
+        this.lightPosition = vec4(x, y, z, w);
         if (this.uniforms.uLightPosition) {
-            this.gl.uniform3fv(this.uniforms.uLightPosition, flatten(this.lightPosition));
+            this.gl.uniform4fv(this.uniforms.uLightPosition, flatten(this.lightPosition));
+        }
+    }
+    
+    /**
+     * 거리 감쇠 계수 설정
+     * @method setAttenuation
+     * @param {number} a - 상수 감쇠 계수
+     * @param {number} b - 1차 감쇠 계수
+     * @param {number} c - 2차 감쇠 계수
+     */
+    setAttenuation(a, b, c) {
+        this.attenuationA = a;
+        this.attenuationB = b;
+        this.attenuationC = c;
+        
+        if (this.uniforms.uAttenuationA) {
+            this.gl.uniform1f(this.uniforms.uAttenuationA, this.attenuationA);
+        }
+        if (this.uniforms.uAttenuationB) {
+            this.gl.uniform1f(this.uniforms.uAttenuationB, this.attenuationB);
+        }
+        if (this.uniforms.uAttenuationC) {
+            this.gl.uniform1f(this.uniforms.uAttenuationC, this.attenuationC);
         }
     }
     
@@ -199,14 +245,18 @@ class BlinnPhongLighting {
      * @method reset
      */
     reset() {
-        this.lightPosition = vec3(5.0, 5.0, 5.0);
-        this.lightAmbient = vec3(0.3, 0.3, 0.3);
-        this.lightDiffuse = vec3(0.7, 0.7, 0.7);
+        this.lightPosition = vec4(2.0, 2.0, 3.0, 1.0);
+        this.lightAmbient = vec3(0.4, 0.4, 0.4);
+        this.lightDiffuse = vec3(1.0, 1.0, 1.0);
         this.lightSpecular = vec3(0.8, 0.8, 0.8);
         
-        this.materialAmbient = vec3(0.4, 0.4, 0.4);
-        this.materialDiffuse = vec3(0.8, 0.8, 0.8);
-        this.materialSpecular = vec3(0.5, 0.5, 0.5);
+        this.attenuationA = 1.0;
+        this.attenuationB = 0.1;
+        this.attenuationC = 0.01;
+        
+        this.materialAmbient = vec3(0.6, 0.6, 0.6);
+        this.materialDiffuse = vec3(1.0, 1.0, 1.0);
+        this.materialSpecular = vec3(0.7, 0.7, 0.7);
         this.materialShininess = 32.0;
         
         this.updateUniforms();

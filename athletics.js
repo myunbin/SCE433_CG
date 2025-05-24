@@ -60,12 +60,16 @@ window.onload = function init() {
     // 이벤트 리스너 설정
     setupEventListeners();
     
-    // render 함수를 전역으로 노출
+    // render 함수와 updateCameraUI 함수를 전역으로 노출
     window.render = render;
+    window.updateCameraUI = updateCameraUI;
     
     // 초기 상태를 명시적으로 스탠딩 포즈로 설정
     poseController.resetAllRotations();
     camera.reset();
+    
+    // 초기 카메라 UI 설정
+    updateCameraUI();
     
     // 초기 렌더링
     render();
@@ -90,25 +94,65 @@ function setupEventListeners() {
         document.getElementById(id)?.addEventListener('click', handler);
     });
     
-    // 카메라 회전/스케일 슬라이더들
-    const cameraControls = [
-        { id: 'rotate-x', setter: 'setRotationX', valueId: 'rotate-x-value', unit: '°' },
-        { id: 'rotate-y', setter: 'setRotationY', valueId: 'rotate-y-value', unit: '°' },
-        { id: 'rotate-z', setter: 'setRotationZ', valueId: 'rotate-z-value', unit: '°' },
-        { id: 'scale', setter: 'setScale', valueId: 'scale-value', unit: 'x', format: v => v.toFixed(1) }
+    // Assignment3 방식 카메라 벡터 슬라이더들
+    const cameraVectorControls = [
+        // Eye 위치
+        { id: 'eye-x', vector: 'eye', axis: 0, valueId: 'eye-x-value' },
+        { id: 'eye-y', vector: 'eye', axis: 1, valueId: 'eye-y-value' },
+        { id: 'eye-z', vector: 'eye', axis: 2, valueId: 'eye-z-value' },
+        // At 위치
+        { id: 'at-x', vector: 'at', axis: 0, valueId: 'at-x-value' },
+        { id: 'at-y', vector: 'at', axis: 1, valueId: 'at-y-value' },
+        { id: 'at-z', vector: 'at', axis: 2, valueId: 'at-z-value' },
+        // Up 벡터
+        { id: 'up-x', vector: 'up', axis: 0, valueId: 'up-x-value' },
+        { id: 'up-y', vector: 'up', axis: 1, valueId: 'up-y-value' },
+        { id: 'up-z', vector: 'up', axis: 2, valueId: 'up-z-value' }
     ];
     
-    cameraControls.forEach(({ id, setter, valueId, unit, format }) => {
+    cameraVectorControls.forEach(({ id, vector, axis, valueId }) => {
         const element = document.getElementById(id);
         if (element) {
             element.addEventListener('input', function() {
-                const value = id === 'scale' ? parseFloat(this.value) : parseInt(this.value);
-                camera[setter](value);
-                const displayValue = format ? format(value) : value;
-                document.getElementById(valueId).textContent = displayValue + unit;
+                const value = parseFloat(this.value);
+                camera[vector][axis] = value;
+                
+                // eye 벡터가 변경되면 구 좌표계 파라미터도 업데이트
+                if (vector === 'eye') {
+                    camera.updateSphericalCoordinatesFromEye();
+                }
+                
+                document.getElementById(valueId).textContent = value.toFixed(1);
                 render();
             });
         }
+    });
+    
+    // 줌 슬라이더
+    const zoomElement = document.getElementById('zoom');
+    if (zoomElement) {
+        zoomElement.addEventListener('input', function() {
+            const value = parseFloat(this.value);
+            camera.setScale(value);
+            document.getElementById('zoom-value').textContent = value.toFixed(1) + 'x';
+            render();
+        });
+    }
+    
+    // 미리 정의된 뷰 버튼들
+    const viewButtons = {
+        'view-front': () => camera.setViewFront(),
+        'view-side': () => camera.setViewSide(),
+        'view-top': () => camera.setViewTop(),
+        'reset-camera': () => {
+            camera.reset();
+            updateCameraUI();
+            render();
+        }
+    };
+    
+    Object.entries(viewButtons).forEach(([id, handler]) => {
+        document.getElementById(id)?.addEventListener('click', handler);
     });
     
     // 블린-퐁 조명 컨트롤 설정
@@ -270,15 +314,15 @@ function setupLightingControls() {
  */
 function resetLightingUI() {
     const lightingDefaults = {
-        'light-x': { value: 5.0, display: '5.0' },
-        'light-y': { value: 5.0, display: '5.0' },
-        'light-z': { value: 5.0, display: '5.0' },
-        'ambient-intensity': { value: 0.3, display: '0.30' },
-        'diffuse-intensity': { value: 0.7, display: '0.70' },
+        'light-x': { value: 2.0, display: '2.0' },
+        'light-y': { value: 2.0, display: '2.0' },
+        'light-z': { value: 3.0, display: '3.0' },
+        'ambient-intensity': { value: 0.4, display: '0.40' },
+        'diffuse-intensity': { value: 1.0, display: '1.00' },
         'specular-intensity': { value: 0.8, display: '0.80' },
-        'material-ambient': { value: 0.4, display: '0.40' },
-        'material-diffuse': { value: 0.8, display: '0.80' },
-        'material-specular': { value: 0.5, display: '0.50' },
+        'material-ambient': { value: 0.6, display: '0.60' },
+        'material-diffuse': { value: 1.0, display: '1.00' },
+        'material-specular': { value: 0.7, display: '0.70' },
         'shininess': { value: 32, display: '32' }
     };
     
@@ -291,16 +335,62 @@ function resetLightingUI() {
     });
     
     // 특별히 처리해야 하는 디스플레이 요소들
-    document.getElementById('light-x-value').textContent = '5.0';
-    document.getElementById('light-y-value').textContent = '5.0';
-    document.getElementById('light-z-value').textContent = '5.0';
-    document.getElementById('ambient-value').textContent = '0.30';
-    document.getElementById('diffuse-value').textContent = '0.70';
+    document.getElementById('light-x-value').textContent = '2.0';
+    document.getElementById('light-y-value').textContent = '2.0';
+    document.getElementById('light-z-value').textContent = '3.0';
+    document.getElementById('ambient-value').textContent = '0.40';
+    document.getElementById('diffuse-value').textContent = '1.00';
     document.getElementById('specular-value').textContent = '0.80';
-    document.getElementById('material-ambient-value').textContent = '0.40';
-    document.getElementById('material-diffuse-value').textContent = '0.80';
-    document.getElementById('material-specular-value').textContent = '0.50';
+    document.getElementById('material-ambient-value').textContent = '0.60';
+    document.getElementById('material-diffuse-value').textContent = '1.00';
+    document.getElementById('material-specular-value').textContent = '0.70';
     document.getElementById('shininess-value').textContent = '32';
+}
+
+/**
+ * 카메라 UI를 현재 상태로 업데이트
+ * @function updateCameraUI
+ */
+function updateCameraUI() {
+    // Eye 벡터 UI 업데이트
+    const eyeElements = ['eye-x', 'eye-y', 'eye-z'];
+    eyeElements.forEach((id, index) => {
+        const element = document.getElementById(id);
+        const valueElement = document.getElementById(id + '-value');
+        const value = camera.eye[index];
+        
+        if (element) element.value = value;
+        if (valueElement) valueElement.textContent = value.toFixed(1);
+    });
+    
+    // At 벡터 UI 업데이트
+    const atElements = ['at-x', 'at-y', 'at-z'];
+    atElements.forEach((id, index) => {
+        const element = document.getElementById(id);
+        const valueElement = document.getElementById(id + '-value');
+        const value = camera.at[index];
+        
+        if (element) element.value = value;
+        if (valueElement) valueElement.textContent = value.toFixed(1);
+    });
+    
+    // Up 벡터 UI 업데이트
+    const upElements = ['up-x', 'up-y', 'up-z'];
+    upElements.forEach((id, index) => {
+        const element = document.getElementById(id);
+        const valueElement = document.getElementById(id + '-value');
+        const value = camera.up[index];
+        
+        if (element) element.value = value;
+        if (valueElement) valueElement.textContent = value.toFixed(1);
+    });
+    
+    // 줌 UI 업데이트
+    const zoomElement = document.getElementById('zoom');
+    const zoomValueElement = document.getElementById('zoom-value');
+    
+    if (zoomElement) zoomElement.value = camera.scale;
+    if (zoomValueElement) zoomValueElement.textContent = camera.scale.toFixed(1) + 'x';
 }
 
 /**
@@ -316,20 +406,8 @@ function resetAll() {
     lighting.reset();
     resetLightingUI();
     
-    // UI 슬라이더 초기화
-    const initialValues = {
-        'rotate-x': { value: 0, display: '0°' },
-        'rotate-y': { value: 0, display: '0°' },
-        'rotate-z': { value: 0, display: '0°' },
-        'scale': { value: 1, display: '1.0x' }
-    };
-    
-    Object.entries(initialValues).forEach(([id, { value, display }]) => {
-        const element = document.getElementById(id);
-        const displayElement = document.getElementById(id + '-value');
-        if (element) element.value = value;
-        if (displayElement) displayElement.textContent = display;
-    });
+    // 카메라 UI 업데이트
+    updateCameraUI();
     
     // 관절 선택 초기화
     const jointSelector = document.getElementById("joint-selector");

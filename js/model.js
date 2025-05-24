@@ -225,14 +225,15 @@ class HumanModel {
             }
         }
         
-        // 인덱스 생성
+        // 인덱스 생성 (바깥쪽을 향한 법선)
         for (let i = 0; i < segments; i++) {
             for (let j = 0; j < segments; j++) {
                 const first = i * (segments + 1) + j;
                 const second = first + segments + 1;
                 
-                indices.push(first, second, first + 1);
-                indices.push(second, second + 1, first + 1);
+                // 반시계방향으로 수정하여 바깥쪽 법선 보장
+                indices.push(first, first + 1, second);
+                indices.push(second, first + 1, second + 1);
             }
         }
         
@@ -268,30 +269,30 @@ class HumanModel {
             vertices.push(vec4(bottomRadius * cos, -height/2, bottomRadius * sin, 1.0));
         }
         
-        // 측면 인덱스
+        // 측면 인덱스 (바깥쪽을 향한 법선)
         for (let i = 0; i < segments; i++) {
             const topCurrent = 2 + i * 2;
             const topNext = 2 + ((i + 1) % segments) * 2;
             const bottomCurrent = topCurrent + 1;
             const bottomNext = topNext + 1;
             
-            // 측면 사각형을 두 개의 삼각형으로
-            indices.push(topCurrent, bottomCurrent, topNext);
-            indices.push(topNext, bottomCurrent, bottomNext);
+            // 측면 사각형을 두 개의 삼각형으로 (반시계방향)
+            indices.push(topCurrent, topNext, bottomCurrent);
+            indices.push(bottomCurrent, topNext, bottomNext);
         }
         
-        // 위쪽 면 인덱스
+        // 위쪽 면 인덱스 (위쪽을 향한 법선)
         for (let i = 0; i < segments; i++) {
             const current = 2 + i * 2;
             const next = 2 + ((i + 1) % segments) * 2;
-            indices.push(0, current, next);
+            indices.push(0, next, current);
         }
         
-        // 아래쪽 면 인덱스
+        // 아래쪽 면 인덱스 (아래쪽을 향한 법선)
         for (let i = 0; i < segments; i++) {
             const current = 2 + i * 2 + 1;
             const next = 2 + ((i + 1) % segments) * 2 + 1;
-            indices.push(1, next, current);
+            indices.push(1, current, next);
         }
         
         return { vertices, indices };
@@ -333,13 +334,13 @@ class HumanModel {
         ];
         
         const indices = [
-            // 앞면
+            // 앞면 (몸통 앞쪽을 향한 법선 - 시계방향으로 변경)
             0, 2, 1, 1, 2, 3,
             2, 4, 3, 3, 4, 5,
-            // 뒷면
-            7, 8, 6, 9, 8, 7,
-            9, 10, 8, 11, 10, 9,
-            // 측면들
+            // 뒷면 (몸통 뒤쪽을 향한 법선 - 반시계방향으로 변경)
+            6, 7, 8, 8, 7, 9,
+            8, 9, 10, 10, 9, 11,
+            // 측면들 (모두 바깥쪽을 향한 법선)
             0, 6, 2, 2, 6, 8,
             1, 3, 7, 7, 3, 9,
             2, 8, 4, 4, 8, 10,
@@ -377,15 +378,15 @@ class HumanModel {
         ];
         
         const indices = [
-            // 앞면
-            0, 1, 2, 0, 2, 3,
-            // 뒷면
-            5, 4, 6, 6, 4, 7,
-            // 측면들
-            0, 4, 1, 1, 4, 5,
-            1, 5, 2, 2, 5, 6,
-            2, 6, 3, 3, 6, 7,
-            3, 7, 0, 0, 7, 4
+            // 앞면 (바깥쪽을 향한 법선)
+            0, 2, 1, 0, 3, 2,
+            // 뒷면 (바깥쪽을 향한 법선 - 반시계방향)
+            4, 6, 5, 4, 7, 6,
+            // 측면들 (바깥쪽을 향한 법선)
+            0, 1, 4, 1, 5, 4,
+            1, 2, 5, 2, 6, 5,
+            2, 3, 6, 3, 7, 6,
+            3, 0, 7, 0, 4, 7
         ];
         
         return { vertices, indices };
@@ -419,16 +420,16 @@ class HumanModel {
         ];
         
         const indices = [
-            // 아래면 (경사)
+            // 아래면 (경사, 아래쪽을 향한 법선)
             0, 4, 1, 1, 4, 5,
-            // 위면 (경사)
-            2, 3, 6, 6, 3, 7,
-            // 측면들
-            0, 2, 4, 4, 2, 6,
-            1, 5, 3, 3, 5, 7,
-            // 앞뒤면 (경사)
-            4, 6, 5, 5, 6, 7,
-            1, 3, 0, 0, 3, 2
+            // 위면 (경사, 위쪽을 향한 법선)
+            2, 3, 6, 3, 7, 6,
+            // 측면들 (바깥쪽을 향한 법선)
+            0, 2, 4, 2, 6, 4,
+            1, 5, 3, 5, 7, 3,
+            // 앞뒤면 (경사, 바깥쪽을 향한 법선)
+            4, 6, 5, 6, 7, 5,
+            0, 1, 2, 1, 3, 2
         ];
         
         return { vertices, indices };
@@ -628,17 +629,16 @@ class HumanModel {
             }
         }
         
-        // 인덱스 생성 (복잡하므로 간단한 triangle strip 방식 사용)
+        // 인덱스 생성 (바깥쪽을 향한 법선 - createEllipsoid와 동일한 순서)
         const totalRings = (segments/2 + 1) + cylinderSteps + 1 + (segments/2 + 1);
         for (let i = 0; i < totalRings - 1; i++) {
             for (let j = 0; j < segments; j++) {
                 const current = i * (segments + 1) + j;
                 const next = current + segments + 1;
                 
-                // 삼각형 1
-                indices.push(current, next, current + 1);
-                // 삼각형 2
-                indices.push(current + 1, next, next + 1);
+                // createEllipsoid와 동일한 순서 사용
+                indices.push(current, current + 1, next);
+                indices.push(next, current + 1, next + 1);
             }
         }
         
@@ -680,14 +680,15 @@ class HumanModel {
             }
         }
         
-        // 인덱스 생성
+        // 인덱스 생성 (바깥쪽을 향한 법선 - createEllipsoid와 동일한 순서)
         for (let i = 0; i < segments; i++) {
             for (let j = 0; j < segments; j++) {
                 const first = i * (segments + 1) + j;
                 const second = first + segments + 1;
                 
-                indices.push(first, second, first + 1);
-                indices.push(second, second + 1, first + 1);
+                // createEllipsoid와 동일한 순서 사용
+                indices.push(first, first + 1, second);
+                indices.push(second, first + 1, second + 1);
             }
         }
         
@@ -727,14 +728,15 @@ class HumanModel {
             }
         }
         
-        // 인덱스 생성
+        // 인덱스 생성 (바깥쪽을 향한 법선 - createEllipsoid와 동일한 순서)
         for (let i = 0; i < steps; i++) {
             for (let j = 0; j < segments; j++) {
                 const current = i * (segments + 1) + j;
                 const next = current + segments + 1;
                 
-                indices.push(current, next, current + 1);
-                indices.push(current + 1, next, next + 1);
+                // createEllipsoid와 동일한 순서 사용
+                indices.push(current, current + 1, next);
+                indices.push(next, current + 1, next + 1);
             }
         }
         
@@ -789,11 +791,14 @@ class HumanModel {
      * @method drawStandingWithTransforms
      */
     drawStandingWithTransforms() {
+        // 전체 모델을 Y축으로 180도 회전하여 빛을 받는 면이 정면이 되도록 조정
+        modelViewMatrix = mult(modelViewMatrix, rotateY(180));
+        
         // 몸통 (조끼 형태 - 텍스처 적용) - 루트 노드
         this.pushMatrix();
         this.applyNodeTransform('TORSO');
         const torsoGeometry = this.createVest(BODY_PARTS.TORSO.width, BODY_PARTS.TORSO.height, BODY_PARTS.TORSO.depth);
-        this.drawGeometry(torsoGeometry, BODY_COLOR, true); // 텍스처 사용
+        this.drawGeometry(torsoGeometry, BODY_COLOR, false); // 텍스처 사용 안함
         
         // 몸통 뒷면 봉제선 그리기
         this.drawBackSeam(BODY_PARTS.TORSO.width, BODY_PARTS.TORSO.height, BODY_PARTS.TORSO.depth);
