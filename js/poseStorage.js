@@ -62,6 +62,9 @@ class PoseStorage {
                 this.savePose();
             }
         });
+        
+        // 파일 관련 이벤트 리스너 추가
+        this.setupFileEventListeners();
     }
     
     /**
@@ -359,6 +362,183 @@ class PoseStorage {
         // PoseController의 메시지 표시 메서드 재사용
         if (this.poseController && this.poseController.showStatusMessage) {
             this.poseController.showStatusMessage(message, type);
+        }
+    }
+    
+    /**
+     * 포즈 데이터를 JSON 파일로 내보내기
+     * @method exportPose
+     * @param {string} poseName - 내보낼 포즈 이름 (선택사항)
+     */
+    exportPose(poseName = null) {
+        let dataToExport;
+        let filename;
+        
+        if (poseName && this.savedPoses[poseName]) {
+            // 특정 포즈만 내보내기
+            dataToExport = {
+                version: '1.0',
+                type: 'single',
+                pose: this.savedPoses[poseName]
+            };
+            filename = `pose_${poseName.replace(/\s+/g, '_')}.json`;
+        } else {
+            // 모든 포즈 내보내기
+            dataToExport = {
+                version: '1.0',
+                type: 'collection',
+                poses: this.savedPoses,
+                exportDate: new Date().toISOString()
+            };
+            filename = `poses_collection_${new Date().getTime()}.json`;
+        }
+        
+        // JSON 파일 생성 및 다운로드
+        const jsonString = JSON.stringify(dataToExport, null, 2);
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        this.showStatusMessage(`포즈가 ${filename} 파일로 내보내졌습니다.`, 'success');
+    }
+    
+    /**
+     * JSON 파일에서 포즈 데이터 가져오기
+     * @method importPose
+     * @param {File} file - 가져올 JSON 파일
+     */
+    async importPose(file) {
+        try {
+            const text = await file.text();
+            const data = JSON.parse(text);
+            
+            // 버전 확인
+            if (!data.version || data.version !== '1.0') {
+                throw new Error('지원하지 않는 파일 형식입니다.');
+            }
+            
+            let importedCount = 0;
+            
+            if (data.type === 'single' && data.pose) {
+                // 단일 포즈 가져오기
+                const poseName = data.pose.name || `Imported_${Date.now()}`;
+                
+                // 포즈 데이터 검증
+                if (!this.validatePoseData(data.pose.data)) {
+                    throw new Error('유효하지 않은 포즈 데이터입니다.');
+                }
+                
+                // 중복 이름 처리
+                let finalName = poseName;
+                let counter = 1;
+                while (this.savedPoses[finalName]) {
+                    finalName = `${poseName}_${counter}`;
+                    counter++;
+                }
+                
+                this.savedPoses[finalName] = {
+                    ...data.pose,
+                    name: finalName,
+                    timestamp: Date.now()
+                };
+                importedCount = 1;
+                
+            } else if (data.type === 'collection' && data.poses) {
+                // 여러 포즈 가져오기
+                for (const [name, pose] of Object.entries(data.poses)) {
+                    if (this.validatePoseData(pose.data)) {
+                        // 중복 이름 처리
+                        let finalName = name;
+                        let counter = 1;
+                        while (this.savedPoses[finalName]) {
+                            finalName = `${name}_imported_${counter}`;
+                            counter++;
+                        }
+                        
+                        this.savedPoses[finalName] = {
+                            ...pose,
+                            name: finalName,
+                            timestamp: Date.now()
+                        };
+                        importedCount++;
+                    }
+                }
+            } else {
+                throw new Error('알 수 없는 파일 형식입니다.');
+            }
+            
+            if (importedCount > 0) {
+                // 로컬스토리지에 저장
+                this.saveToStorage();
+                
+                // UI 업데이트
+                this.updatePoseList();
+                
+                this.showStatusMessage(`${importedCount}개의 포즈를 가져왔습니다.`, 'success');
+            } else {
+                throw new Error('가져올 수 있는 포즈가 없습니다.');
+            }
+            
+        } catch (error) {
+            console.error('포즈 가져오기 실패:', error);
+            this.showStatusMessage(`포즈 가져오기 실패: ${error.message}`, 'error');
+        }
+    }
+    
+    /**
+     * UI 이벤트 리스너 설정 (파일 관련 추가)
+     * @method setupFileEventListeners
+     */
+    setupFileEventListeners() {
+        // 내보내기 버튼 생성 및 이벤트 추가
+        const exportBtn = document.createElement('button');
+        exportBtn.id = 'export-poses';
+        exportBtn.textContent = '파일로 내보내기';
+        exportBtn.addEventListener('click', () => {
+            const selectedPose = document.getElementById('saved-poses').value;
+            if (selectedPose && selectedPose !== '') {
+                // 선택된 포즈만 내보내기
+                const confirmSingle = confirm(`"${selectedPose}" 포즈만 내보내시겠습니까?\n취소를 누르면 모든 포즈를 내보냅니다.`);
+                this.exportPose(confirmSingle ? selectedPose : null);
+            } else {
+                // 모든 포즈 내보내기
+                this.exportPose();
+            }
+        });
+        
+        // 가져오기 버튼 및 파일 입력 생성
+        const importBtn = document.createElement('button');
+        importBtn.id = 'import-poses';
+        importBtn.textContent = '파일에서 가져오기';
+        
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = '.json';
+        fileInput.style.display = 'none';
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                this.importPose(e.target.files[0]);
+                e.target.value = ''; // 같은 파일 재선택 가능하도록
+            }
+        });
+        
+        importBtn.addEventListener('click', () => {
+            fileInput.click();
+        });
+        
+        // 버튼들을 UI에 추가
+        const poseButtons = document.querySelector('.pose-buttons');
+        if (poseButtons) {
+            poseButtons.appendChild(exportBtn);
+            poseButtons.appendChild(importBtn);
+            poseButtons.appendChild(fileInput);
         }
     }
 } 

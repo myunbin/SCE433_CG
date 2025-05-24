@@ -244,4 +244,117 @@ class Camera {
         this.updateUI();
         this.updateScaleUI();
     }
+    
+    /**
+     * 현재 카메라 상태 반환
+     * @method getCameraState
+     * @returns {Object} 카메라 상태 객체
+     */
+    getCameraState() {
+        return {
+            rotationX: this.rotationX,
+            rotationY: this.rotationY,
+            rotationZ: this.rotationZ,
+            scale: this.scale,
+            position: [...this.position]
+        };
+    }
+    
+    /**
+     * 카메라 상태 설정
+     * @method setCameraState
+     * @param {Object} state - 카메라 상태 객체
+     */
+    setCameraState(state) {
+        if (state.rotationX !== undefined) this.rotationX = state.rotationX;
+        if (state.rotationY !== undefined) this.rotationY = state.rotationY;
+        if (state.rotationZ !== undefined) this.rotationZ = state.rotationZ;
+        if (state.scale !== undefined) this.scale = state.scale;
+        if (state.position !== undefined) this.position = vec3(...state.position);
+        
+        this.updateUI();
+        this.updateScaleUI();
+        this.triggerRender();
+    }
+    
+    /**
+     * 기본 카메라 상태 반환
+     * @method getDefaultState
+     * @returns {Object} 기본 카메라 상태
+     */
+    getDefaultState() {
+        return {
+            rotationX: 0,
+            rotationY: 0,
+            rotationZ: 0,
+            scale: 1.0,
+            position: [0, 0, -3]
+        };
+    }
+    
+    /**
+     * 두 카메라 상태 사이를 보간
+     * @method interpolateState
+     * @param {Object} state1 - 시작 상태
+     * @param {Object} state2 - 끝 상태
+     * @param {number} t - 보간 비율 (0-1)
+     * @returns {Object} 보간된 카메라 상태
+     */
+    interpolateState(state1, state2, t) {
+        // 부드러운 보간을 위한 이징 함수
+        const easedT = t < 0.5 
+            ? 4 * t * t * t 
+            : 1 - Math.pow(-2 * t + 2, 3) / 2;
+        
+        return {
+            rotationX: this.lerp(state1.rotationX, state2.rotationX, easedT),
+            rotationY: this.lerpAngle(state1.rotationY, state2.rotationY, easedT),
+            rotationZ: this.lerpAngle(state1.rotationZ, state2.rotationZ, easedT),
+            scale: this.lerp(state1.scale, state2.scale, easedT),
+            position: [
+                this.lerp(state1.position[0], state2.position[0], easedT),
+                this.lerp(state1.position[1], state2.position[1], easedT),
+                this.lerp(state1.position[2], state2.position[2], easedT)
+            ]
+        };
+    }
+    
+    /**
+     * 선형 보간 함수
+     * @method lerp
+     * @param {number} a - 시작값
+     * @param {number} b - 끝값
+     * @param {number} t - 보간 비율 (0-1)
+     * @returns {number} 보간된 값
+     */
+    lerp(a, b, t) {
+        return a + (b - a) * t;
+    }
+    
+    /**
+     * 각도 보간 함수 (최단 경로)
+     * @method lerpAngle
+     * @param {number} a - 시작 각도
+     * @param {number} b - 끝 각도
+     * @param {number} t - 보간 비율 (0-1)
+     * @returns {number} 보간된 각도
+     */
+    lerpAngle(a, b, t) {
+        // 각도를 -180 ~ 180 범위로 정규화
+        const normalizeAngle = (angle) => {
+            while (angle > 180) angle -= 360;
+            while (angle < -180) angle += 360;
+            return angle;
+        };
+        
+        a = normalizeAngle(a);
+        b = normalizeAngle(b);
+        
+        // 최단 경로 계산
+        let diff = b - a;
+        if (diff > 180) diff -= 360;
+        if (diff < -180) diff += 360;
+        
+        return normalizeAngle(a + diff * t);
+    }
 } 

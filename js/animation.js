@@ -2,23 +2,25 @@
  * @fileoverview 애니메이션 모듈 - 키프레임 애니메이션 관리
  * @description 저장된 포즈들을 키프레임으로 하여 부드러운 애니메이션을 생성하고 재생하는 모듈
  * @author SCE433 Computer Graphics Team
- * @version 1.0.0
+ * @version 2.1.0 - 포즈와 카메라 통합 키프레임
  */
 
 /**
  * 키프레임 애니메이션을 관리하는 클래스
  * @class Animation
- * @description 포즈 간 보간을 통한 부드러운 애니메이션 제어
+ * @description 포즈와 카메라 상태를 함께 관리하는 통합 애니메이션 제어
  */
 class Animation {
     /**
      * Animation 생성자
      * @param {PoseController} poseController - 포즈 컨트롤러 인스턴스
      * @param {PoseStorage} poseStorage - 포즈 저장소 인스턴스
+     * @param {Camera} camera - 카메라 인스턴스 (선택사항)
      */
-    constructor(poseController, poseStorage) {
+    constructor(poseController, poseStorage, camera = null) {
         this.poseController = poseController;
         this.poseStorage = poseStorage;
+        this.camera = camera;
         
         // 애니메이션 상태
         this.keyframes = [];
@@ -29,7 +31,7 @@ class Animation {
         this.animationFrameId = null;
         
         // 타이밍 설정
-        this.defaultFrameDuration = 1000; // 기본 키프레임 간격 (ms)
+        this.defaultFrameDuration = 1500; // 기본 키프레임 간격 (ms) - 좀 더 긴 시간으로
         this.interpolationSteps = 60; // 초당 프레임 수
         
         // UI 이벤트 리스너 설정
@@ -44,9 +46,9 @@ class Animation {
      * @method setupEventListeners
      */
     setupEventListeners() {
-        // 현재 포즈를 애니메이션에 추가
+        // 현재 상태를 키프레임으로 추가
         document.getElementById('add-to-animation').addEventListener('click', () => {
-            this.addCurrentPoseAsKeyframe();
+            this.addCurrentStateAsKeyframe();
         });
         
         // 애니메이션 클리어
@@ -80,20 +82,49 @@ class Animation {
     }
     
     /**
-     * 현재 포즈를 키프레임으로 추가
-     * @method addCurrentPoseAsKeyframe
+     * 현재 포즈와 카메라 상태를 키프레임으로 추가
+     * @method addCurrentStateAsKeyframe
      */
-    addCurrentPoseAsKeyframe() {
+    addCurrentStateAsKeyframe() {
         const currentPose = this.poseController.getCurrentPose();
+        const currentCamera = this.camera ? this.camera.getCameraState() : null;
+        
+        // 첫 번째 키프레임은 항상 기본 스탠딩 포즈로 설정
+        if (this.keyframes.length === 0) {
+            const standingPose = this.getStandingPose();
+            const defaultCamera = this.camera ? this.camera.getDefaultState() : null;
+            const standingKeyframe = {
+                id: Date.now(),
+                time: 0,
+                pose: standingPose,
+                camera: defaultCamera,
+                name: '기본 스탠딩',
+                isStanding: true
+            };
+            this.keyframes.push(standingKeyframe);
+            
+            // 현재 포즈가 스탠딩 포즈와 같고 카메라도 기본 상태라면 추가하지 않음
+            if (this.isPoseSame(currentPose, standingPose) && 
+                this.isCameraSame(currentCamera, defaultCamera)) {
+                this.showStatusMessage('첫 번째 키프레임으로 기본 스탠딩 포즈가 추가되었습니다.', 'info');
+                this.updateTotalDuration();
+                this.updateUI();
+                return;
+            }
+        }
         
         // 빈 포즈인지 확인
         const isEmptyPose = Object.values(currentPose).every(rotation => 
             rotation.x === 0 && rotation.y === 0 && rotation.z === 0
         );
         
+        // 첫 번째 키프레임이 있을 때, 빈 포즈면서 카메라도 변화가 없다면 추가하지 않음
         if (isEmptyPose && this.keyframes.length > 0) {
-            this.showStatusMessage('변경된 포즈가 없습니다. 부위를 조작한 후 추가해주세요.', 'error');
-            return;
+            const lastCamera = this.keyframes[this.keyframes.length - 1].camera;
+            if (this.isCameraSame(currentCamera, lastCamera)) {
+                this.showStatusMessage('변경된 포즈나 카메라 시점이 없습니다.', 'error');
+                return;
+            }
         }
         
         // 키프레임 생성
@@ -101,6 +132,7 @@ class Animation {
             id: Date.now(),
             time: this.keyframes.length * this.defaultFrameDuration,
             pose: { ...currentPose },
+            camera: currentCamera ? { ...currentCamera } : null,
             name: `키프레임 ${this.keyframes.length + 1}`
         };
         
@@ -108,7 +140,65 @@ class Animation {
         this.updateTotalDuration();
         this.updateUI();
         
-        this.showStatusMessage(`키프레임이 추가되었습니다. (${this.keyframes.length}개)`, 'success');
+        this.showStatusMessage(`키프레임 ${this.keyframes.length}이 추가되었습니다.`, 'success');
+    }
+    
+    /**
+     * 두 카메라 상태가 같은지 비교
+     * @method isCameraSame
+     * @param {Object} camera1 - 첫 번째 카메라 상태
+     * @param {Object} camera2 - 두 번째 카메라 상태
+     * @returns {boolean} 같으면 true
+     */
+    isCameraSame(camera1, camera2) {
+        if (!camera1 && !camera2) return true;
+        if (!camera1 || !camera2) return false;
+        
+        const threshold = 0.1; // 허용 오차
+        return Math.abs(camera1.rotationX - camera2.rotationX) < threshold &&
+               Math.abs(camera1.rotationY - camera2.rotationY) < threshold &&
+               Math.abs(camera1.rotationZ - camera2.rotationZ) < threshold &&
+               Math.abs(camera1.scale - camera2.scale) < threshold;
+    }
+    
+    /**
+     * 기본 스탠딩 포즈 반환
+     * @method getStandingPose
+     * @returns {Object} 기본 스탠딩 포즈
+     */
+    getStandingPose() {
+        const standingPose = {};
+        const bodyParts = [
+            'HEAD', 'LEFT_UPPER_ARM', 'LEFT_LOWER_ARM', 'LEFT_HAND',
+            'RIGHT_UPPER_ARM', 'RIGHT_LOWER_ARM', 'RIGHT_HAND',
+            'LEFT_UPPER_LEG', 'LEFT_LOWER_LEG', 'LEFT_FOOT',
+            'RIGHT_UPPER_LEG', 'RIGHT_LOWER_LEG', 'RIGHT_FOOT'
+        ];
+        
+        bodyParts.forEach(part => {
+            standingPose[part] = { x: 0, y: 0, z: 0 };
+        });
+        
+        return standingPose;
+    }
+    
+    /**
+     * 두 포즈가 같은지 비교
+     * @method isPoseSame
+     * @param {Object} pose1 - 첫 번째 포즈
+     * @param {Object} pose2 - 두 번째 포즈
+     * @returns {boolean} 같으면 true
+     */
+    isPoseSame(pose1, pose2) {
+        for (const part in pose1) {
+            if (!pose2[part]) return false;
+            if (pose1[part].x !== pose2[part].x ||
+                pose1[part].y !== pose2[part].y ||
+                pose1[part].z !== pose2[part].z) {
+                return false;
+            }
+        }
+        return true;
     }
     
     /**
@@ -131,6 +221,12 @@ class Animation {
         this.currentTime = 0;
         this.totalDuration = 0;
         this.updateUI();
+        
+        // 기본 스탠딩 포즈로 복귀
+        this.poseController.resetAllRotations();
+        if (this.camera) {
+            this.camera.reset();
+        }
         
         this.showStatusMessage('애니메이션이 클리어되었습니다.', 'success');
     }
@@ -190,9 +286,10 @@ class Animation {
             this.animationFrameId = null;
         }
         
-        // 첫 번째 키프레임으로 되돌리기
-        if (this.keyframes.length > 0) {
-            this.poseController.setPose(this.keyframes[0].pose);
+        // 기본 스탠딩 포즈로 되돌리기
+        this.poseController.resetAllRotations();
+        if (this.camera) {
+            this.camera.reset();
         }
         
         this.updateTimelinePosition();
@@ -217,8 +314,8 @@ class Animation {
             this.currentTime = 0;
         }
         
-        // 현재 시간에 해당하는 포즈 계산 및 적용
-        this.interpolateAndApplyPose(this.currentTime);
+        // 현재 시간에 해당하는 상태 계산 및 적용
+        this.interpolateAndApplyState(this.currentTime);
         
         // 타임라인 UI 업데이트
         this.updateTimelinePosition();
@@ -228,11 +325,11 @@ class Animation {
     }
     
     /**
-     * 지정된 시간의 포즈를 보간하여 적용
-     * @method interpolateAndApplyPose
+     * 지정된 시간의 포즈와 카메라 상태를 보간하여 적용
+     * @method interpolateAndApplyState
      * @param {number} time - 애니메이션 시간 (ms)
      */
-    interpolateAndApplyPose(time) {
+    interpolateAndApplyState(time) {
         if (this.keyframes.length < 2) return;
         
         // 현재 시간에 해당하는 키프레임 구간 찾기
@@ -257,15 +354,23 @@ class Animation {
         const timeDiff = nextKeyframe.time - currentKeyframe.time;
         const progress = timeDiff > 0 ? (time - currentKeyframe.time) / timeDiff : 0;
         
-        // 보간된 포즈 계산
+        // 포즈 보간 및 적용
         const interpolatedPose = this.interpolatePoses(
             currentKeyframe.pose, 
             nextKeyframe.pose, 
             progress
         );
-        
-        // 포즈 적용
         this.poseController.setPose(interpolatedPose);
+        
+        // 카메라 보간 및 적용
+        if (this.camera && currentKeyframe.camera && nextKeyframe.camera) {
+            const interpolatedCamera = this.camera.interpolateState(
+                currentKeyframe.camera,
+                nextKeyframe.camera,
+                progress
+            );
+            this.camera.setCameraState(interpolatedCamera);
+        }
     }
     
     /**
@@ -277,17 +382,19 @@ class Animation {
      * @returns {Object} 보간된 포즈
      */
     interpolatePoses(pose1, pose2, t) {
-        // 부드러운 보간을 위한 이징 함수 (ease-in-out)
-        const easedT = t * t * (3 - 2 * t);
+        // 부드러운 보간을 위한 이징 함수 (ease-in-out cubic)
+        const easedT = t < 0.5 
+            ? 4 * t * t * t 
+            : 1 - Math.pow(-2 * t + 2, 3) / 2;
         
         const interpolatedPose = {};
         
         Object.keys(pose1).forEach(partName => {
             if (pose2[partName]) {
                 interpolatedPose[partName] = {
-                    x: this.lerp(pose1[partName].x, pose2[partName].x, easedT),
-                    y: this.lerp(pose1[partName].y, pose2[partName].y, easedT),
-                    z: this.lerp(pose1[partName].z, pose2[partName].z, easedT)
+                    x: this.lerpAngle(pose1[partName].x, pose2[partName].x, easedT),
+                    y: this.lerpAngle(pose1[partName].y, pose2[partName].y, easedT),
+                    z: this.lerpAngle(pose1[partName].z, pose2[partName].z, easedT)
                 };
             } else {
                 interpolatedPose[partName] = { ...pose1[partName] };
@@ -298,15 +405,30 @@ class Animation {
     }
     
     /**
-     * 선형 보간 함수
-     * @method lerp
-     * @param {number} a - 시작값
-     * @param {number} b - 끝값
+     * 각도 보간 함수 (최단 경로)
+     * @method lerpAngle
+     * @param {number} a - 시작 각도
+     * @param {number} b - 끝 각도
      * @param {number} t - 보간 비율 (0-1)
-     * @returns {number} 보간된 값
+     * @returns {number} 보간된 각도
      */
-    lerp(a, b, t) {
-        return a + (b - a) * t;
+    lerpAngle(a, b, t) {
+        // 각도를 -180 ~ 180 범위로 정규화
+        const normalizeAngle = (angle) => {
+            while (angle > 180) angle -= 360;
+            while (angle < -180) angle += 360;
+            return angle;
+        };
+        
+        a = normalizeAngle(a);
+        b = normalizeAngle(b);
+        
+        // 최단 경로 계산
+        let diff = b - a;
+        if (diff > 180) diff -= 360;
+        if (diff < -180) diff += 360;
+        
+        return normalizeAngle(a + diff * t);
     }
     
     /**
@@ -322,7 +444,7 @@ class Animation {
         const progress = clickX / rect.width;
         
         this.currentTime = progress * this.totalDuration;
-        this.interpolateAndApplyPose(this.currentTime);
+        this.interpolateAndApplyState(this.currentTime);
         this.updateTimelinePosition();
     }
     
@@ -381,6 +503,9 @@ class Animation {
                 e.stopPropagation();
                 this.currentTime = keyframe.time;
                 this.poseController.setPose(keyframe.pose);
+                if (this.camera && keyframe.camera) {
+                    this.camera.setCameraState(keyframe.camera);
+                }
                 this.updateTimelinePosition();
                 this.showStatusMessage(`${keyframe.name}으로 이동했습니다.`, 'info');
             });
@@ -412,6 +537,7 @@ class Animation {
     updatePlaybackButtons() {
         const playBtn = document.getElementById('play-animation');
         const stopBtn = document.getElementById('stop-animation');
+        const addBtn = document.getElementById('add-to-animation');
         
         const hasKeyframes = this.keyframes.length >= 2;
         
@@ -419,6 +545,9 @@ class Animation {
         stopBtn.disabled = !hasKeyframes || (!this.isPlaying && this.currentTime === 0);
         
         playBtn.textContent = this.isPlaying ? '일시정지' : '재생';
+        
+        // 키프레임 추가 버튼은 항상 활성화
+        if (addBtn) addBtn.disabled = false;
     }
     
     /**
@@ -456,7 +585,7 @@ class Animation {
             keyframes: this.keyframes,
             totalDuration: this.totalDuration,
             defaultFrameDuration: this.defaultFrameDuration,
-            version: '1.0.0'
+            version: '2.1.0'
         };
     }
     
@@ -474,7 +603,7 @@ class Animation {
         this.stopAnimation();
         this.keyframes = animationData.keyframes;
         this.totalDuration = animationData.totalDuration || 0;
-        this.defaultFrameDuration = animationData.defaultFrameDuration || 1000;
+        this.defaultFrameDuration = animationData.defaultFrameDuration || 1500;
         
         this.updateUI();
         this.showStatusMessage('애니메이션을 가져왔습니다.', 'success');

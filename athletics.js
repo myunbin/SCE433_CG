@@ -54,7 +54,7 @@ window.onload = function init() {
     camera = new Camera(gl, program, canvas);
     poseController = new PoseController(humanModel);
     poseStorage = new PoseStorage(poseController);
-    animation = new Animation(poseController, poseStorage);
+    animation = new Animation(poseController, poseStorage, camera);
     
     // 이벤트 리스너 설정
     setupEventListeners();
