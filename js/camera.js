@@ -45,10 +45,11 @@ class Camera {
      */
     setupProjection() {
         const aspect = this.canvas.width / this.canvas.height;
-        const projectionMatrix = perspective(45, aspect, 0.1, 10.0);
+        // 전역 변수로 설정하여 다른 곳에서 접근 가능하도록 함
+        window.projectionMatrix = perspective(45, aspect, 0.1, 10.0);
         
         const uProjectionMatrix = this.gl.getUniformLocation(this.program, "uProjectionMatrix");
-        this.gl.uniformMatrix4fv(uProjectionMatrix, false, flatten(projectionMatrix));
+        this.gl.uniformMatrix4fv(uProjectionMatrix, false, flatten(window.projectionMatrix));
     }
     
     /**

@@ -10,14 +10,42 @@
     <script id="vertex-shader" type="x-shader/x-vertex">
     attribute vec4 vPosition;
     attribute vec4 vColor;
+    attribute vec3 vNormal;
     
     uniform mat4 uModelViewMatrix;
     uniform mat4 uProjectionMatrix;
+    uniform mat3 uNormalMatrix;
+    
+    // 조명 관련 유니폼
+    uniform vec3 uLightPosition;
+    uniform vec3 uLightAmbient;
+    uniform vec3 uLightDiffuse;
+    uniform vec3 uLightSpecular;
+    
+    // 재질 관련 유니폼
+    uniform vec3 uMaterialAmbient;
+    uniform vec3 uMaterialDiffuse;
+    uniform vec3 uMaterialSpecular;
+    uniform float uMaterialShininess;
     
     varying vec4 fColor;
+    varying vec3 fPosition;
+    varying vec3 fNormal;
+    varying vec3 fLightDirection;
+    varying vec3 fViewDirection;
     
     void main() {
-        gl_Position = uProjectionMatrix * uModelViewMatrix * vPosition;
+        // 위치 변환
+        vec4 worldPosition = uModelViewMatrix * vPosition;
+        gl_Position = uProjectionMatrix * worldPosition;
+        
+        // 프래그먼트 셰이더로 전달할 변수들
+        fPosition = worldPosition.xyz;
+        fNormal = normalize(uNormalMatrix * vNormal);
+        fLightDirection = normalize(uLightPosition - fPosition);
+        fViewDirection = normalize(-fPosition);
+        
+        // 기본 색상도 전달 (재질 속성 대신 사용할 수 있음)
         fColor = vColor;
     }
     </script>
@@ -25,10 +53,48 @@
     <script id="fragment-shader" type="x-shader/x-fragment">
     precision mediump float;
     
+    // 조명 관련 유니폼
+    uniform vec3 uLightAmbient;
+    uniform vec3 uLightDiffuse;
+    uniform vec3 uLightSpecular;
+    
+    // 재질 관련 유니폼
+    uniform vec3 uMaterialAmbient;
+    uniform vec3 uMaterialDiffuse;
+    uniform vec3 uMaterialSpecular;
+    uniform float uMaterialShininess;
+    
     varying vec4 fColor;
+    varying vec3 fPosition;
+    varying vec3 fNormal;
+    varying vec3 fLightDirection;
+    varying vec3 fViewDirection;
     
     void main() {
-        gl_FragColor = fColor;
+        // 정규화된 벡터들
+        vec3 N = normalize(fNormal);
+        vec3 L = normalize(fLightDirection);
+        vec3 V = normalize(fViewDirection);
+        vec3 H = normalize(L + V);
+        
+        // Ambient 성분
+        vec3 ambient = uLightAmbient * uMaterialAmbient;
+        
+        // Diffuse 성분
+        float NdotL = max(dot(N, L), 0.0);
+        vec3 diffuse = uLightDiffuse * uMaterialDiffuse * NdotL;
+        
+        // Specular 성분 (Blinn-Phong)
+        float NdotH = max(dot(N, H), 0.0);
+        vec3 specular = uLightSpecular * uMaterialSpecular * pow(NdotH, uMaterialShininess);
+        
+        // 최종 색상 계산
+        vec3 finalColor = ambient + diffuse + specular;
+        
+        // 기본 색상과 블렌딩 (선택적)
+        finalColor *= fColor.rgb;
+        
+        gl_FragColor = vec4(finalColor, fColor.a);
     }
     </script>
     
@@ -39,6 +105,7 @@
     
     <!-- 모듈화된 JavaScript 파일들 -->
     <script type="text/javascript" src="js/camera.js"></script>
+    <script type="text/javascript" src="js/blinn-phong-lighting.js"></script>
     <script type="text/javascript" src="js/model.js"></script>
     <script type="text/javascript" src="js/poseController.js"></script>
     <script type="text/javascript" src="js/poseStorage.js"></script>
@@ -206,6 +273,111 @@
                 </div>
             </div>
             
+            <!-- 블린-퐁 조명 -->
+            <div class="accordion-section">
+                <div class="accordion-header" data-target="lighting-control">
+                    <span class="accordion-title">💡 블린-퐁 조명</span>
+                    <span class="accordion-arrow">▼</span>
+                </div>
+                <div class="accordion-content active" id="lighting-control">
+                    <!-- 조명 위치 -->
+                    <div class="subsection-title">조명 위치</div>
+                    <div class="slider-controls">
+                        <div class="slider-container">
+                            <div class="slider-label">
+                                <span>조명 X</span>
+                                <span id="light-x-value">5.0</span>
+                            </div>
+                            <input type="range" id="light-x" min="-10" max="10" value="5" step="0.1">
+                        </div>
+                        
+                        <div class="slider-container">
+                            <div class="slider-label">
+                                <span>조명 Y</span>
+                                <span id="light-y-value">5.0</span>
+                            </div>
+                            <input type="range" id="light-y" min="-10" max="10" value="5" step="0.1">
+                        </div>
+                        
+                        <div class="slider-container">
+                            <div class="slider-label">
+                                <span>조명 Z</span>
+                                <span id="light-z-value">5.0</span>
+                            </div>
+                            <input type="range" id="light-z" min="-10" max="10" value="5" step="0.1">
+                        </div>
+                    </div>
+                    
+                    <!-- 조명 강도 -->
+                    <div class="subsection-title">조명 강도</div>
+                    <div class="slider-controls">
+                        <div class="slider-container">
+                            <div class="slider-label">
+                                <span>Ambient</span>
+                                <span id="ambient-value">0.3</span>
+                            </div>
+                            <input type="range" id="ambient-intensity" min="0" max="1" value="0.3" step="0.01">
+                        </div>
+                        
+                        <div class="slider-container">
+                            <div class="slider-label">
+                                <span>Diffuse</span>
+                                <span id="diffuse-value">0.7</span>
+                            </div>
+                            <input type="range" id="diffuse-intensity" min="0" max="1" value="0.7" step="0.01">
+                        </div>
+                        
+                        <div class="slider-container">
+                            <div class="slider-label">
+                                <span>Specular</span>
+                                <span id="specular-value">0.8</span>
+                            </div>
+                            <input type="range" id="specular-intensity" min="0" max="1" value="0.8" step="0.01">
+                        </div>
+                    </div>
+                    
+                    <!-- 재질 속성 -->
+                    <div class="subsection-title">재질 속성</div>
+                    <div class="slider-controls">
+                        <div class="slider-container">
+                            <div class="slider-label">
+                                <span>재질 Ambient</span>
+                                <span id="material-ambient-value">0.4</span>
+                            </div>
+                            <input type="range" id="material-ambient" min="0" max="1" value="0.4" step="0.01">
+                        </div>
+                        
+                        <div class="slider-container">
+                            <div class="slider-label">
+                                <span>재질 Diffuse</span>
+                                <span id="material-diffuse-value">0.8</span>
+                            </div>
+                            <input type="range" id="material-diffuse" min="0" max="1" value="0.8" step="0.01">
+                        </div>
+                        
+                        <div class="slider-container">
+                            <div class="slider-label">
+                                <span>재질 Specular</span>
+                                <span id="material-specular-value">0.5</span>
+                            </div>
+                            <input type="range" id="material-specular" min="0" max="1" value="0.5" step="0.01">
+                        </div>
+                        
+                        <div class="slider-container">
+                            <div class="slider-label">
+                                <span>광택도 (Shininess)</span>
+                                <span id="shininess-value">32</span>
+                            </div>
+                            <input type="range" id="shininess" min="1" max="128" value="32" step="1">
+                        </div>
+                    </div>
+                    
+                    <div class="controls">
+                        <button id="reset-lighting">조명 초기화</button>
+                    </div>
+                </div>
+            </div>
+
             <!-- 뷰 조작 -->
             <div class="accordion-section">
                 <div class="accordion-header" data-target="view-control">

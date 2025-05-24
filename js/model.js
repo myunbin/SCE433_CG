@@ -69,6 +69,10 @@ class HumanModel {
         // 버퍼 초기화
         this.positionBuffer = gl.createBuffer();
         this.colorBuffer = gl.createBuffer();
+        this.normalBuffer = gl.createBuffer();
+        
+        // 블린-퐁 조명 시스템 초기화
+        this.lighting = new BlinnPhongLighting(gl, program);
         
         // 각 노드의 변환 정보 저장 (향후 애니메이션/인터랙션용)
         this.nodeTransforms = {};
@@ -367,25 +371,60 @@ class HumanModel {
             colors.push(color);
         }
         
+        // 노멀 벡터 계산 (오류 처리 포함)
+        let normalArray = [];
+        try {
+            const normals = BlinnPhongLighting.calculateNormals(vertices, indices);
+            for (let i = 0; i < indices.length; i++) {
+                if (normals[indices[i]]) {
+                    normalArray.push(normals[indices[i]]);
+                } else {
+                    // 기본 노멀 벡터 (위쪽 방향)
+                    normalArray.push(vec3(0, 1, 0));
+                }
+            }
+        } catch (error) {
+            console.warn("노멀 벡터 계산 실패, 기본값 사용:", error);
+            // 기본 노멀 벡터로 채움
+            for (let i = 0; i < positions.length; i++) {
+                normalArray.push(vec3(0, 1, 0));
+            }
+        }
+        
         // 위치 데이터 업로드
         this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.positionBuffer);
         this.gl.bufferData(this.gl.ARRAY_BUFFER, flatten(positions), this.gl.STATIC_DRAW);
         
         const vPosition = this.gl.getAttribLocation(this.program, "vPosition");
-        this.gl.vertexAttribPointer(vPosition, 4, this.gl.FLOAT, false, 0, 0);
-        this.gl.enableVertexAttribArray(vPosition);
+        if (vPosition >= 0) {
+            this.gl.vertexAttribPointer(vPosition, 4, this.gl.FLOAT, false, 0, 0);
+            this.gl.enableVertexAttribArray(vPosition);
+        }
         
         // 색상 데이터 업로드
         this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.colorBuffer);
         this.gl.bufferData(this.gl.ARRAY_BUFFER, flatten(colors), this.gl.STATIC_DRAW);
         
         const vColor = this.gl.getAttribLocation(this.program, "vColor");
-        this.gl.vertexAttribPointer(vColor, 4, this.gl.FLOAT, false, 0, 0);
-        this.gl.enableVertexAttribArray(vColor);
+        if (vColor >= 0) {
+            this.gl.vertexAttribPointer(vColor, 4, this.gl.FLOAT, false, 0, 0);
+            this.gl.enableVertexAttribArray(vColor);
+        }
         
-        // 모델-뷰 행렬 업로드
-        const uModelViewMatrix = this.gl.getUniformLocation(this.program, "uModelViewMatrix");
-        this.gl.uniformMatrix4fv(uModelViewMatrix, false, flatten(modelViewMatrix));
+        // 노멀 데이터 업로드
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.normalBuffer);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, flatten(normalArray), this.gl.STATIC_DRAW);
+        
+        const vNormal = this.gl.getAttribLocation(this.program, "vNormal");
+        if (vNormal >= 0) {
+            this.gl.vertexAttribPointer(vNormal, 3, this.gl.FLOAT, false, 0, 0);
+            this.gl.enableVertexAttribArray(vNormal);
+        }
+        
+        // 블린-퐁 조명 매트릭스 업데이트
+        if (this.lighting && typeof projectionMatrix !== 'undefined') {
+            this.lighting.updateMatrices(modelViewMatrix, projectionMatrix);
+        }
         
         // 그리기
         this.gl.drawArrays(this.gl.TRIANGLES, 0, positions.length);
@@ -839,25 +878,47 @@ class HumanModel {
             vec4(0.05, 0.1, 0.3, 1.0)
         ];
         
+        // 노멀 벡터 (선이므로 임시로 위쪽 방향)
+        const seamNormals = [
+            vec3(0, 1, 0),
+            vec3(0, 1, 0),
+            vec3(0, 1, 0)
+        ];
+        
         // 위치 데이터 업로드
         this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.positionBuffer);
         this.gl.bufferData(this.gl.ARRAY_BUFFER, flatten(seamVertices), this.gl.STATIC_DRAW);
         
         const vPosition = this.gl.getAttribLocation(this.program, "vPosition");
-        this.gl.vertexAttribPointer(vPosition, 4, this.gl.FLOAT, false, 0, 0);
-        this.gl.enableVertexAttribArray(vPosition);
+        if (vPosition >= 0) {
+            this.gl.vertexAttribPointer(vPosition, 4, this.gl.FLOAT, false, 0, 0);
+            this.gl.enableVertexAttribArray(vPosition);
+        }
         
         // 색상 데이터 업로드
         this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.colorBuffer);
         this.gl.bufferData(this.gl.ARRAY_BUFFER, flatten(seamColors), this.gl.STATIC_DRAW);
         
         const vColor = this.gl.getAttribLocation(this.program, "vColor");
-        this.gl.vertexAttribPointer(vColor, 4, this.gl.FLOAT, false, 0, 0);
-        this.gl.enableVertexAttribArray(vColor);
+        if (vColor >= 0) {
+            this.gl.vertexAttribPointer(vColor, 4, this.gl.FLOAT, false, 0, 0);
+            this.gl.enableVertexAttribArray(vColor);
+        }
         
-        // 모델-뷰 행렬 업로드
-        const uModelViewMatrix = this.gl.getUniformLocation(this.program, "uModelViewMatrix");
-        this.gl.uniformMatrix4fv(uModelViewMatrix, false, flatten(modelViewMatrix));
+        // 노멀 데이터 업로드
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.normalBuffer);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, flatten(seamNormals), this.gl.STATIC_DRAW);
+        
+        const vNormal = this.gl.getAttribLocation(this.program, "vNormal");
+        if (vNormal >= 0) {
+            this.gl.vertexAttribPointer(vNormal, 3, this.gl.FLOAT, false, 0, 0);
+            this.gl.enableVertexAttribArray(vNormal);
+        }
+        
+        // 조명 매트릭스 업데이트
+        if (this.lighting && typeof projectionMatrix !== 'undefined') {
+            this.lighting.updateMatrices(modelViewMatrix, projectionMatrix);
+        }
         
         // 선 굵기 설정
         this.gl.lineWidth(3.0);

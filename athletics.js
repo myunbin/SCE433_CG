@@ -7,13 +7,10 @@
  */
 
 // WebGL 관련 전역 변수
-let gl, program, modelViewMatrix;
+let gl, program, modelViewMatrix, projectionMatrix;
 
 // 모듈 인스턴스들
-let humanModel, camera, poseController, poseStorage, animation;
-
-// 상태 변수
-let isRunning = false;
+let humanModel, camera, poseController, poseStorage, animation, lighting;
 
 /**
  * 배경색 상수 (검은색)
@@ -50,8 +47,12 @@ window.onload = function init() {
     gl.useProgram(program);
     
     // 모듈 초기화 (순서 중요!)
-    humanModel = new HumanModel(gl, program);
     camera = new Camera(gl, program, canvas);
+    projectionMatrix = window.projectionMatrix; // 카메라에서 설정된 투영 행렬 참조
+    
+    humanModel = new HumanModel(gl, program);
+    lighting = humanModel.lighting; // 조명 시스템 참조
+    
     poseController = new PoseController(humanModel);
     poseStorage = new PoseStorage(poseController);
     animation = new Animation(poseController, poseStorage, camera);
@@ -109,6 +110,9 @@ function setupEventListeners() {
             });
         }
     });
+    
+    // 블린-퐁 조명 컨트롤 설정
+    setupLightingControls();
 }
 
 /**
@@ -145,19 +149,158 @@ function setupAccordion() {
         });
     });
     
-    // 초기 상태에서 포즈 전환과 관절 제어만 열어둠
-    const defaultOpenSections = ['pose-control', 'joint-control'];
+    // 초기 상태에서 포즈 전환, 관절 제어, 블린-퐁 조명을 열어둠
+    const defaultOpenSections = ['pose-control', 'joint-control', 'lighting-control'];
     defaultOpenSections.forEach(sectionId => {
         const content = document.getElementById(sectionId);
         const header = document.querySelector(`[data-target="${sectionId}"]`);
-        const section = header.parentElement;
+        const section = header?.parentElement;
         
-        if (content && header) {
+        if (content && header && section) {
             content.classList.add('active');
             header.classList.remove('collapsed');
             section.classList.add('expanded');
         }
     });
+}
+
+/**
+ * 블린-퐁 조명 컨트롤 설정
+ * @function setupLightingControls
+ * @description 조명과 재질 속성을 조작하는 슬라이더들을 설정합니다
+ */
+function setupLightingControls() {
+    // 조명 위치 컨트롤
+    const lightPositionControls = [
+        { id: 'light-x', valueId: 'light-x-value', axis: 0 },
+        { id: 'light-y', valueId: 'light-y-value', axis: 1 },
+        { id: 'light-z', valueId: 'light-z-value', axis: 2 }
+    ];
+    
+    lightPositionControls.forEach(({ id, valueId, axis }) => {
+        const element = document.getElementById(id);
+        if (element) {
+            element.addEventListener('input', function() {
+                const value = parseFloat(this.value);
+                const currentPos = lighting.lightPosition;
+                currentPos[axis] = value;
+                lighting.setLightPosition(currentPos[0], currentPos[1], currentPos[2]);
+                document.getElementById(valueId).textContent = value.toFixed(1);
+                render();
+            });
+        }
+    });
+    
+    // 조명 강도 컨트롤
+    const lightIntensityControls = [
+        { id: 'ambient-intensity', valueId: 'ambient-value', property: 'ambient' },
+        { id: 'diffuse-intensity', valueId: 'diffuse-value', property: 'diffuse' },
+        { id: 'specular-intensity', valueId: 'specular-value', property: 'specular' }
+    ];
+    
+    lightIntensityControls.forEach(({ id, valueId, property }) => {
+        const element = document.getElementById(id);
+        if (element) {
+            element.addEventListener('input', function() {
+                const value = parseFloat(this.value);
+                const ambient = lighting.lightAmbient[0];
+                const diffuse = lighting.lightDiffuse[0];
+                const specular = lighting.lightSpecular[0];
+                
+                if (property === 'ambient') {
+                    lighting.setLightIntensity(value, diffuse, specular);
+                } else if (property === 'diffuse') {
+                    lighting.setLightIntensity(ambient, value, specular);
+                } else if (property === 'specular') {
+                    lighting.setLightIntensity(ambient, diffuse, value);
+                }
+                
+                document.getElementById(valueId).textContent = value.toFixed(2);
+                render();
+            });
+        }
+    });
+    
+    // 재질 속성 컨트롤
+    const materialControls = [
+        { id: 'material-ambient', valueId: 'material-ambient-value', property: 'ambient' },
+        { id: 'material-diffuse', valueId: 'material-diffuse-value', property: 'diffuse' },
+        { id: 'material-specular', valueId: 'material-specular-value', property: 'specular' },
+        { id: 'shininess', valueId: 'shininess-value', property: 'shininess' }
+    ];
+    
+    materialControls.forEach(({ id, valueId, property }) => {
+        const element = document.getElementById(id);
+        if (element) {
+            element.addEventListener('input', function() {
+                const value = property === 'shininess' ? parseInt(this.value) : parseFloat(this.value);
+                const ambient = lighting.materialAmbient[0];
+                const diffuse = lighting.materialDiffuse[0];
+                const specular = lighting.materialSpecular[0];
+                const shininess = lighting.materialShininess;
+                
+                if (property === 'ambient') {
+                    lighting.setMaterialProperties(value, diffuse, specular, shininess);
+                } else if (property === 'diffuse') {
+                    lighting.setMaterialProperties(ambient, value, specular, shininess);
+                } else if (property === 'specular') {
+                    lighting.setMaterialProperties(ambient, diffuse, value, shininess);
+                } else if (property === 'shininess') {
+                    lighting.setMaterialProperties(ambient, diffuse, specular, value);
+                }
+                
+                const displayValue = property === 'shininess' ? value : value.toFixed(2);
+                document.getElementById(valueId).textContent = displayValue;
+                render();
+            });
+        }
+    });
+    
+    // 조명 초기화 버튼
+    document.getElementById('reset-lighting')?.addEventListener('click', () => {
+        lighting.reset();
+        resetLightingUI();
+        render();
+    });
+}
+
+/**
+ * 조명 UI를 기본값으로 초기화
+ * @function resetLightingUI
+ */
+function resetLightingUI() {
+    const lightingDefaults = {
+        'light-x': { value: 5.0, display: '5.0' },
+        'light-y': { value: 5.0, display: '5.0' },
+        'light-z': { value: 5.0, display: '5.0' },
+        'ambient-intensity': { value: 0.3, display: '0.30' },
+        'diffuse-intensity': { value: 0.7, display: '0.70' },
+        'specular-intensity': { value: 0.8, display: '0.80' },
+        'material-ambient': { value: 0.4, display: '0.40' },
+        'material-diffuse': { value: 0.8, display: '0.80' },
+        'material-specular': { value: 0.5, display: '0.50' },
+        'shininess': { value: 32, display: '32' }
+    };
+    
+    Object.entries(lightingDefaults).forEach(([id, { value, display }]) => {
+        const element = document.getElementById(id);
+        const displayElement = document.getElementById(id.replace(/(-intensity|-ambient|-diffuse|-specular)$/, '') + (id.includes('light') ? '-value' : id.includes('material') ? '-value' : '-value'));
+        
+        if (element) element.value = value;
+        if (displayElement) displayElement.textContent = display;
+    });
+    
+    // 특별히 처리해야 하는 디스플레이 요소들
+    document.getElementById('light-x-value').textContent = '5.0';
+    document.getElementById('light-y-value').textContent = '5.0';
+    document.getElementById('light-z-value').textContent = '5.0';
+    document.getElementById('ambient-value').textContent = '0.30';
+    document.getElementById('diffuse-value').textContent = '0.70';
+    document.getElementById('specular-value').textContent = '0.80';
+    document.getElementById('material-ambient-value').textContent = '0.40';
+    document.getElementById('material-diffuse-value').textContent = '0.80';
+    document.getElementById('material-specular-value').textContent = '0.50';
+    document.getElementById('shininess-value').textContent = '32';
 }
 
 /**
@@ -168,6 +311,10 @@ function setupAccordion() {
 function resetAll() {
     // 카메라 상태 초기화
     camera.reset();
+    
+    // 조명 상태 초기화
+    lighting.reset();
+    resetLightingUI();
     
     // UI 슬라이더 초기화
     const initialValues = {
@@ -183,10 +330,6 @@ function resetAll() {
         if (element) element.value = value;
         if (displayElement) displayElement.textContent = display;
     });
-    
-    // 포즈 상태 초기화
-    isRunning = false;
-    document.getElementById("pose-toggle").textContent = "달리기 포즈로 전환";
     
     // 관절 선택 초기화
     const jointSelector = document.getElementById("joint-selector");
@@ -220,5 +363,5 @@ function render() {
     modelViewMatrix = camera.getViewMatrix();
     
     // 통합된 렌더링 메서드 사용
-    humanModel.render(isRunning);
+    humanModel.render();
 } 
