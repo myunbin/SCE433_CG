@@ -11,6 +11,7 @@
     attribute vec4 vPosition;
     attribute vec4 vColor;
     attribute vec3 vNormal;
+    attribute vec2 vTexCoord;
     
     uniform mat4 uModelViewMatrix;
     uniform mat4 uProjectionMatrix;
@@ -33,6 +34,7 @@
     varying vec3 fNormal;
     varying vec3 fLightDirection;
     varying vec3 fViewDirection;
+    varying vec2 fTexCoord;
     
     void main() {
         // 위치 변환
@@ -44,6 +46,7 @@
         fNormal = normalize(uNormalMatrix * vNormal);
         fLightDirection = normalize(uLightPosition - fPosition);
         fViewDirection = normalize(-fPosition);
+        fTexCoord = vTexCoord;
         
         // 기본 색상도 전달 (재질 속성 대신 사용할 수 있음)
         fColor = vColor;
@@ -64,11 +67,16 @@
     uniform vec3 uMaterialSpecular;
     uniform float uMaterialShininess;
     
+    // 텍스처 유니폼
+    uniform sampler2D uTexture;
+    uniform bool uUseTexture;
+    
     varying vec4 fColor;
     varying vec3 fPosition;
     varying vec3 fNormal;
     varying vec3 fLightDirection;
     varying vec3 fViewDirection;
+    varying vec2 fTexCoord;
     
     void main() {
         // 정규화된 벡터들
@@ -91,10 +99,17 @@
         // 최종 색상 계산
         vec3 finalColor = ambient + diffuse + specular;
         
-        // 기본 색상과 블렌딩 (선택적)
-        finalColor *= fColor.rgb;
-        
-        gl_FragColor = vec4(finalColor, fColor.a);
+        // 텍스처가 있을 경우 적용
+        if (uUseTexture) {
+            vec4 textureColor = texture2D(uTexture, fTexCoord);
+            finalColor *= textureColor.rgb;
+            finalColor *= fColor.rgb;
+            gl_FragColor = vec4(finalColor, textureColor.a * fColor.a);
+        } else {
+            // 기본 색상과 블렌딩 (선택적)
+            finalColor *= fColor.rgb;
+            gl_FragColor = vec4(finalColor, fColor.a);
+        }
     }
     </script>
     

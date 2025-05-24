@@ -25,7 +25,7 @@ class BlinnPhongLighting {
         
         // 기본 조명 속성
         this.lightPosition = vec3(5.0, 5.0, 5.0);
-        this.lightAmbient = vec3(0.3, 0.3, 0.3);
+        this.lightAmbient = vec3(0.5, 0.5, 0.5);
         this.lightDiffuse = vec3(0.7, 0.7, 0.7);
         this.lightSpecular = vec3(0.8, 0.8, 0.8);
         

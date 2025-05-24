@@ -13,10 +13,10 @@ let gl, program, modelViewMatrix, projectionMatrix;
 let humanModel, camera, poseController, poseStorage, animation, lighting;
 
 /**
- * 배경색 상수 (검은색)
+ * 배경색 상수 (회색)
  * @constant {vec4} BACKGROUND_COLOR
  */
-const BACKGROUND_COLOR = vec4(0.0, 0.0, 0.0, 1.0);
+const BACKGROUND_COLOR = vec4(0.7, 0.7, 0.7, 1.0);
 
 /**
  * 애플리케이션 초기화 함수
