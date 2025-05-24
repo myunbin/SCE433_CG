@@ -62,6 +62,10 @@ window.onload = function init() {
     // render 함수를 전역으로 노출
     window.render = render;
     
+    // 초기 상태를 명시적으로 스탠딩 포즈로 설정
+    poseController.resetAllRotations();
+    camera.reset();
+    
     // 초기 렌더링
     render();
 };

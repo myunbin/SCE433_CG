@@ -2,7 +2,7 @@
  * @fileoverview 애니메이션 모듈 - 키프레임 애니메이션 관리
  * @description 저장된 포즈들을 키프레임으로 하여 부드러운 애니메이션을 생성하고 재생하는 모듈
  * @author SCE433 Computer Graphics Team
- * @version 2.1.0 - 포즈와 카메라 통합 키프레임
+ * @version 2.2.0 - 전체 애니메이션 길이 조절 기능 추가
  */
 
 /**
@@ -31,7 +31,9 @@ class Animation {
         this.animationFrameId = null;
         
         // 타이밍 설정
-        this.defaultFrameDuration = 1500; // 기본 키프레임 간격 (ms) - 좀 더 긴 시간으로
+        this.defaultFrameDuration = 1500; // 기본 키프레임 간격 (ms)
+        this.minAnimationDuration = 500; // 최소 애니메이션 길이 (ms)
+        this.maxAnimationDuration = 15000; // 최대 애니메이션 길이 (ms)
         this.interpolationSteps = 60; // 초당 프레임 수
         
         // UI 이벤트 리스너 설정
@@ -93,20 +95,35 @@ class Animation {
         if (this.keyframes.length === 0) {
             const standingPose = this.getStandingPose();
             const defaultCamera = this.camera ? this.camera.getDefaultState() : null;
-            const standingKeyframe = {
+            
+            // 시작 키프레임 (시간 0)
+            const startKeyframe = {
                 id: Date.now(),
                 time: 0,
                 pose: standingPose,
                 camera: defaultCamera,
-                name: '기본 스탠딩',
-                isStanding: true
+                name: '시작 (스탠딩)',
+                isStanding: true,
+                isStart: true
             };
-            this.keyframes.push(standingKeyframe);
+            
+            // 끝 키프레임 (기본 애니메이션 길이)
+            const endKeyframe = {
+                id: Date.now() + 1,
+                time: this.defaultFrameDuration * 2, // 기본 길이
+                pose: standingPose,
+                camera: defaultCamera,
+                name: '끝 (스탠딩)',
+                isStanding: true,
+                isEnd: true
+            };
+            
+            this.keyframes.push(startKeyframe, endKeyframe);
             
             // 현재 포즈가 스탠딩 포즈와 같고 카메라도 기본 상태라면 추가하지 않음
             if (this.isPoseSame(currentPose, standingPose) && 
                 this.isCameraSame(currentCamera, defaultCamera)) {
-                this.showStatusMessage('첫 번째 키프레임으로 기본 스탠딩 포즈가 추가되었습니다.', 'info');
+                this.showStatusMessage('시작과 끝 키프레임이 추가되었습니다. 포즈를 변경한 후 키프레임을 추가하세요.', 'info');
                 this.updateTotalDuration();
                 this.updateUI();
                 return;
@@ -119,28 +136,55 @@ class Animation {
         );
         
         // 첫 번째 키프레임이 있을 때, 빈 포즈면서 카메라도 변화가 없다면 추가하지 않음
-        if (isEmptyPose && this.keyframes.length > 0) {
-            const lastCamera = this.keyframes[this.keyframes.length - 1].camera;
-            if (this.isCameraSame(currentCamera, lastCamera)) {
+        if (isEmptyPose && this.keyframes.length >= 2) {
+            const startCamera = this.keyframes[0].camera;
+            if (this.isCameraSame(currentCamera, startCamera)) {
                 this.showStatusMessage('변경된 포즈나 카메라 시점이 없습니다.', 'error');
                 return;
             }
         }
         
-        // 키프레임 생성
-        const keyframe = {
+        // 중간 키프레임 추가 (끝 키프레임 바로 앞에 삽입)
+        const endKeyframe = this.keyframes[this.keyframes.length - 1];
+        const middleKeyframeCount = this.keyframes.length - 1; // 시작 제외한 중간 키프레임 개수
+        const newTime = (endKeyframe.time / (middleKeyframeCount + 1)) * middleKeyframeCount;
+        
+        const newKeyframe = {
             id: Date.now(),
-            time: this.keyframes.length * this.defaultFrameDuration,
+            time: newTime,
             pose: { ...currentPose },
             camera: currentCamera ? { ...currentCamera } : null,
-            name: `키프레임 ${this.keyframes.length + 1}`
+            name: `키프레임 ${middleKeyframeCount}`
         };
         
-        this.keyframes.push(keyframe);
+        // 끝 키프레임 앞에 삽입
+        this.keyframes.splice(-1, 0, newKeyframe);
+        
+        // 중간 키프레임들의 시간 재조정
+        this.redistributeMiddleKeyframes();
+        
         this.updateTotalDuration();
         this.updateUI();
         
-        this.showStatusMessage(`키프레임 ${this.keyframes.length}이 추가되었습니다.`, 'success');
+        this.showStatusMessage(`키프레임 ${middleKeyframeCount}이 추가되었습니다.`, 'success');
+    }
+    
+    /**
+     * 중간 키프레임들의 시간을 균등하게 재분배
+     * @method redistributeMiddleKeyframes
+     */
+    redistributeMiddleKeyframes() {
+        if (this.keyframes.length <= 2) return;
+        
+        const startTime = this.keyframes[0].time; // 항상 0
+        const endTime = this.keyframes[this.keyframes.length - 1].time;
+        const middleCount = this.keyframes.length - 2;
+        
+        for (let i = 1; i < this.keyframes.length - 1; i++) {
+            const progress = i / (middleCount + 1);
+            this.keyframes[i].time = startTime + (endTime - startTime) * progress;
+            this.keyframes[i].name = `키프레임 ${i}`;
+        }
     }
     
     /**
@@ -309,8 +353,11 @@ class Animation {
         
         this.currentTime += deltaTime;
         
-        // 애니메이션 끝에 도달하면 루프
-        if (this.currentTime >= this.totalDuration) {
+        // 마지막 키프레임 시간에 도달하면 루프 (마진 제외)
+        const lastKeyframeTime = this.keyframes.length > 0 ? 
+            this.keyframes[this.keyframes.length - 1].time : 0;
+        
+        if (this.currentTime >= lastKeyframeTime) {
             this.currentTime = 0;
         }
         
@@ -332,6 +379,18 @@ class Animation {
     interpolateAndApplyState(time) {
         if (this.keyframes.length < 2) return;
         
+        const lastKeyframeTime = this.keyframes[this.keyframes.length - 1].time;
+        
+        // 마지막 키프레임 시간에 도달했을 경우
+        if (time >= lastKeyframeTime) {
+            const lastKeyframe = this.keyframes[this.keyframes.length - 1];
+            this.poseController.setPose(lastKeyframe.pose);
+            if (this.camera && lastKeyframe.camera) {
+                this.camera.setCameraState(lastKeyframe.camera);
+            }
+            return;
+        }
+        
         // 현재 시간에 해당하는 키프레임 구간 찾기
         let currentKeyframe = null;
         let nextKeyframe = null;
@@ -344,10 +403,25 @@ class Animation {
             }
         }
         
-        // 마지막 구간 처리
+        // 마지막 구간이나 정확한 키프레임 시간인 경우
         if (!currentKeyframe) {
-            currentKeyframe = this.keyframes[this.keyframes.length - 1];
-            nextKeyframe = this.keyframes[0]; // 루프를 위해 첫 번째 키프레임으로
+            // 가장 가까운 키프레임 찾기
+            let closestKeyframe = this.keyframes[0];
+            let minDistance = Math.abs(time - closestKeyframe.time);
+            
+            for (const keyframe of this.keyframes) {
+                const distance = Math.abs(time - keyframe.time);
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    closestKeyframe = keyframe;
+                }
+            }
+            
+            this.poseController.setPose(closestKeyframe.pose);
+            if (this.camera && closestKeyframe.camera) {
+                this.camera.setCameraState(closestKeyframe.camera);
+            }
+            return;
         }
         
         // 보간 비율 계산
@@ -456,7 +530,8 @@ class Animation {
         if (this.keyframes.length === 0) {
             this.totalDuration = 0;
         } else {
-            this.totalDuration = this.keyframes[this.keyframes.length - 1].time + this.defaultFrameDuration;
+            // 마지막 키프레임 시간 + 300ms 마진 (드래그 편의성)
+            this.totalDuration = this.keyframes[this.keyframes.length - 1].time + 300;
         }
     }
     
@@ -496,9 +571,20 @@ class Animation {
             const marker = document.createElement('div');
             marker.className = 'keyframe-marker';
             marker.style.left = (keyframe.time / this.totalDuration * 100) + '%';
-            marker.title = keyframe.name;
+            marker.dataset.keyframeIndex = index;
             
-            // 마커 클릭 이벤트
+            // 키프레임 타입에 따른 스타일링
+            if (keyframe.isStart) {
+                marker.classList.add('start');
+                marker.title = `${keyframe.name}\n(시작 키프레임 - 이동 불가)`;
+            } else if (keyframe.isEnd) {
+                marker.classList.add('end');
+                marker.title = `${keyframe.name}\n드래그하여 전체 애니메이션 길이 조절`;
+            } else {
+                marker.title = `${keyframe.name}\n좌클릭: 이동, 우클릭: 삭제, 드래그: 시간 조절`;
+            }
+            
+            // 마커 좌클릭 이벤트 (키프레임으로 이동)
             marker.addEventListener('click', (e) => {
                 e.stopPropagation();
                 this.currentTime = keyframe.time;
@@ -510,24 +596,250 @@ class Animation {
                 this.showStatusMessage(`${keyframe.name}으로 이동했습니다.`, 'info');
             });
             
+            // 마커 우클릭 이벤트 (중간 키프레임만 삭제 가능)
+            marker.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                if (keyframe.isStart || keyframe.isEnd) {
+                    this.showStatusMessage('시작과 끝 키프레임은 삭제할 수 없습니다.', 'error');
+                    return;
+                }
+                
+                const confirmDelete = confirm(`"${keyframe.name}"을 삭제하시겠습니까?`);
+                if (confirmDelete) {
+                    this.removeKeyframe(index);
+                    this.showStatusMessage(`${keyframe.name}이 삭제되었습니다.`, 'success');
+                }
+            });
+            
+            // 마커 드래그 이벤트
+            this.setupMarkerDrag(marker, index);
+            
             timelineBar.appendChild(marker);
         });
     }
     
     /**
-     * 타임라인 현재 위치 표시 업데이트
-     * @method updateTimelinePosition
+     * 마커 드래그 기능 설정
+     * @method setupMarkerDrag
+     * @param {HTMLElement} marker - 마커 요소
+     * @param {number} keyframeIndex - 키프레임 인덱스
      */
-    updateTimelinePosition() {
-        const timelineBar = document.getElementById('timeline-bar');
-        const progress = this.totalDuration > 0 ? (this.currentTime / this.totalDuration) : 0;
+    setupMarkerDrag(marker, keyframeIndex) {
+        let isDragging = false;
+        let startX = 0;
+        let startTime = 0;
+        let originalEndTime = 0; // 드래그 시작 시점의 끝 키프레임 시간
+        let originalKeyframeTimes = []; // 드래그 시작 시점의 모든 키프레임 시간
         
-        // 현재 위치 표시를 위한 그라디언트 스타일 적용
-        timelineBar.style.background = `linear-gradient(to right, 
-            #ff6b35 0%, 
-            #ff6b35 ${progress * 100}%, 
-            #007acc ${progress * 100}%, 
-            #007acc 100%)`;
+        const keyframe = this.keyframes[keyframeIndex];
+        
+        marker.addEventListener('mousedown', (e) => {
+            if (e.button !== 0) return; // 좌클릭만
+            
+            isDragging = true;
+            startX = e.clientX;
+            startTime = keyframe.time;
+            
+            // 끝 키프레임 드래그 시 원래 시간들 저장
+            if (keyframe.isEnd) {
+                originalEndTime = keyframe.time;
+                originalKeyframeTimes = this.keyframes.map(kf => kf.time);
+            }
+            
+            marker.style.cursor = 'grabbing';
+            marker.style.zIndex = '1000';
+            
+            e.preventDefault();
+            e.stopPropagation();
+        });
+        
+        document.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            
+            const timelineContainer = document.getElementById('timeline-container');
+            const rect = timelineContainer.getBoundingClientRect();
+            const deltaX = e.clientX - startX;
+            const deltaPercent = deltaX / rect.width;
+            
+            if (keyframe.isStart) {
+                // 시작 키프레임은 이동 불가
+                return;
+            } else if (keyframe.isEnd) {
+                // 끝 키프레임 드래그 시 전체 타임라인 스케일링
+                const currentTotalDuration = this.totalDuration;
+                const deltaTime = deltaPercent * currentTotalDuration;
+                let newEndTime = Math.max(this.minAnimationDuration, 
+                                        Math.min(this.maxAnimationDuration, originalEndTime + deltaTime));
+                
+                // 모든 키프레임 시간을 비례적으로 조정 (저장된 원래 시간 기준)
+                this.keyframes.forEach((kf, index) => {
+                    if (kf.isStart) {
+                        // 시작 키프레임은 항상 0
+                        kf.time = 0;
+                    } else if (kf.isEnd) {
+                        // 끝 키프레임은 새로운 시간
+                        kf.time = newEndTime;
+                    } else {
+                        // 중간 키프레임들은 원래 시간 비율을 유지
+                        const originalRatio = originalKeyframeTimes[index] / originalEndTime;
+                        kf.time = newEndTime * originalRatio;
+                    }
+                });
+                
+                this.updateTotalDuration();
+                
+                // 끝 키프레임을 타임라인 끝에 고정 (시각적으로 움직이지 않게)
+                marker.style.left = '100%';
+                
+                // 다른 마커들 위치 업데이트
+                this.updateOtherMarkersPosition();
+                
+            } else {
+                // 중간 키프레임 드래그 시 개별 시간 조절
+                const deltaTime = deltaPercent * this.totalDuration;
+                let newTime = startTime + deltaTime;
+                const minGap = 200;
+                
+                // 이전 키프레임과의 간격 체크
+                if (keyframeIndex > 0) {
+                    const prevTime = this.keyframes[keyframeIndex - 1].time;
+                    newTime = Math.max(newTime, prevTime + minGap);
+                }
+                
+                // 다음 키프레임과의 간격 체크
+                if (keyframeIndex < this.keyframes.length - 1) {
+                    const nextTime = this.keyframes[keyframeIndex + 1].time;
+                    newTime = Math.min(newTime, nextTime - minGap);
+                }
+                
+                keyframe.time = newTime;
+                marker.style.left = (newTime / this.totalDuration * 100) + '%';
+            }
+            
+            // 실시간 프리뷰 (선택사항)
+            if (e.ctrlKey) {
+                this.currentTime = keyframe.isEnd ? keyframe.time : newTime;
+                this.interpolateAndApplyState(this.currentTime);
+                this.updateTimelinePosition();
+            }
+        });
+        
+        document.addEventListener('mouseup', () => {
+            if (!isDragging) return;
+            
+            isDragging = false;
+            marker.style.cursor = keyframe.isEnd ? 'ew-resize' : 'pointer';
+            marker.style.zIndex = '';
+            
+            if (keyframe.isEnd) {
+                const duration = (keyframe.time / 1000).toFixed(1);
+                this.showStatusMessage(`전체 애니메이션 길이가 ${duration}초로 조정되었습니다.`, 'success');
+                
+                // 모든 마커 위치 최종 업데이트
+                this.updateTimelineMarkers();
+            } else {
+                this.showStatusMessage('키프레임 시간이 조정되었습니다.', 'success');
+            }
+        });
+    }
+    
+    /**
+     * 끝 키프레임 드래그 중 다른 마커들의 위치만 업데이트
+     * @method updateOtherMarkersPosition
+     */
+    updateOtherMarkersPosition() {
+        const timelineBar = document.getElementById('timeline-bar');
+        const markers = timelineBar.querySelectorAll('.keyframe-marker');
+        
+        markers.forEach((marker, index) => {
+            const keyframe = this.keyframes[index];
+            if (!keyframe.isEnd) {
+                marker.style.left = (keyframe.time / this.totalDuration * 100) + '%';
+            }
+        });
+    }
+    
+    /**
+     * 키프레임을 시간 순서대로 정렬
+     * @method sortKeyframes
+     */
+    sortKeyframes() {
+        this.keyframes.sort((a, b) => a.time - b.time);
+        
+        // 중간 키프레임 이름 재설정
+        let counter = 1;
+        this.keyframes.forEach(keyframe => {
+            if (!keyframe.isStart && !keyframe.isEnd) {
+                keyframe.name = `키프레임 ${counter}`;
+                counter++;
+            }
+        });
+    }
+    
+    /**
+     * 키프레임 개별 삭제
+     * @method removeKeyframe
+     * @param {number} index - 삭제할 키프레임 인덱스
+     */
+    removeKeyframe(index) {
+        if (index < 0 || index >= this.keyframes.length) return;
+        
+        const keyframe = this.keyframes[index];
+        
+        // 시작/끝 키프레임은 삭제 불가
+        if (keyframe.isStart || keyframe.isEnd) {
+            this.showStatusMessage('시작과 끝 키프레임은 삭제할 수 없습니다.', 'error');
+            return;
+        }
+        
+        this.keyframes.splice(index, 1);
+        
+        // 중간 키프레임들의 시간 재분배
+        this.redistributeMiddleKeyframes();
+        
+        this.updateTotalDuration();
+        this.updateUI();
+        
+        // 재생 중이면 정지
+        if (this.isPlaying) {
+            this.stopAnimation();
+        }
+    }
+    
+    /**
+     * 애니메이션 데이터 내보내기
+     * @method exportAnimation
+     * @returns {Object} 애니메이션 데이터
+     */
+    exportAnimation() {
+        return {
+            keyframes: this.keyframes,
+            totalDuration: this.totalDuration,
+            defaultFrameDuration: this.defaultFrameDuration,
+            version: '2.2.0'
+        };
+    }
+    
+    /**
+     * 애니메이션 데이터 가져오기
+     * @method importAnimation
+     * @param {Object} animationData - 가져올 애니메이션 데이터
+     */
+    importAnimation(animationData) {
+        if (!animationData || !animationData.keyframes) {
+            this.showStatusMessage('유효하지 않은 애니메이션 데이터입니다.', 'error');
+            return;
+        }
+        
+        this.stopAnimation();
+        this.keyframes = animationData.keyframes;
+        this.totalDuration = animationData.totalDuration || 0;
+        this.defaultFrameDuration = animationData.defaultFrameDuration || 1500;
+        
+        this.updateUI();
+        this.showStatusMessage('애니메이션을 가져왔습니다.', 'success');
     }
     
     /**
@@ -551,62 +863,19 @@ class Animation {
     }
     
     /**
-     * 키프레임 개별 삭제
-     * @method removeKeyframe
-     * @param {number} index - 삭제할 키프레임 인덱스
+     * 타임라인 현재 위치 표시 업데이트
+     * @method updateTimelinePosition
      */
-    removeKeyframe(index) {
-        if (index < 0 || index >= this.keyframes.length) return;
+    updateTimelinePosition() {
+        const timelineBar = document.getElementById('timeline-bar');
+        const progress = this.totalDuration > 0 ? (this.currentTime / this.totalDuration) : 0;
         
-        this.keyframes.splice(index, 1);
-        
-        // 시간 재계산
-        this.keyframes.forEach((keyframe, i) => {
-            keyframe.time = i * this.defaultFrameDuration;
-            keyframe.name = `키프레임 ${i + 1}`;
-        });
-        
-        this.updateTotalDuration();
-        this.updateUI();
-        
-        // 재생 중이면 정지
-        if (this.isPlaying) {
-            this.stopAnimation();
-        }
-    }
-    
-    /**
-     * 애니메이션 데이터 내보내기
-     * @method exportAnimation
-     * @returns {Object} 애니메이션 데이터
-     */
-    exportAnimation() {
-        return {
-            keyframes: this.keyframes,
-            totalDuration: this.totalDuration,
-            defaultFrameDuration: this.defaultFrameDuration,
-            version: '2.1.0'
-        };
-    }
-    
-    /**
-     * 애니메이션 데이터 가져오기
-     * @method importAnimation
-     * @param {Object} animationData - 가져올 애니메이션 데이터
-     */
-    importAnimation(animationData) {
-        if (!animationData || !animationData.keyframes) {
-            this.showStatusMessage('유효하지 않은 애니메이션 데이터입니다.', 'error');
-            return;
-        }
-        
-        this.stopAnimation();
-        this.keyframes = animationData.keyframes;
-        this.totalDuration = animationData.totalDuration || 0;
-        this.defaultFrameDuration = animationData.defaultFrameDuration || 1500;
-        
-        this.updateUI();
-        this.showStatusMessage('애니메이션을 가져왔습니다.', 'success');
+        // 현재 위치 표시를 위한 그라디언트 스타일 적용
+        timelineBar.style.background = `linear-gradient(to right, 
+            #ff6b35 0%, 
+            #ff6b35 ${progress * 100}%, 
+            #007acc ${progress * 100}%, 
+            #007acc 100%)`;
     }
     
     /**

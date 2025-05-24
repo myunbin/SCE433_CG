@@ -417,6 +417,77 @@ select:focus {
     width: 5px;
 }
 
+/* 기본 스탠딩 키프레임 스타일 */
+.keyframe-marker.standing {
+    background-color: #28a745;
+    width: 4px;
+    cursor: default;
+}
+
+.keyframe-marker.standing:hover {
+    background-color: #218838;
+}
+
+.keyframe-marker.standing::before {
+    content: '🚶';
+    position: absolute;
+    top: -25px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 12px;
+}
+
+/* 시작 키프레임 스타일 */
+.keyframe-marker.start {
+    background-color: #28a745;
+    width: 5px;
+    cursor: default;
+    border-radius: 2px 0 0 2px;
+}
+
+.keyframe-marker.start:hover {
+    background-color: #218838;
+}
+
+.keyframe-marker.start::before {
+    content: '🚀';
+    position: absolute;
+    top: -25px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 12px;
+}
+
+/* 끝 키프레임 스타일 */
+.keyframe-marker.end {
+    background-color: #dc3545;
+    width: 5px;
+    cursor: ew-resize;
+    border-radius: 0 2px 2px 0;
+}
+
+.keyframe-marker.end:hover {
+    background-color: #c82333;
+    transform: scale(1.1);
+}
+
+.keyframe-marker.end::before {
+    content: '🏁';
+    position: absolute;
+    top: -25px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 12px;
+}
+
+/* 드래그 중인 끝 키프레임 스타일 */
+.keyframe-marker.end:active {
+    background-color: #007acc;
+    transform: scale(1.2);
+    z-index: 1000;
+    box-shadow: 0 0 10px rgba(220, 53, 69, 0.5);
+}
+
 /* 부위별 회전 컨트롤 상태 표시 */
 #selected-part-name {
     color: #007acc;
