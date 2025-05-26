@@ -244,28 +244,28 @@ class Camera {
     }
     
     /**
-     * 뷰 행렬 계산 및 반환 (Assignment3 방식 - 마우스 위치 기반)
+     * 뷰 행렬 계산 및 반환
      * @method getViewMatrix
-     * @returns {mat4} 변환이 적용된 뷰 행렬
+     * @returns {mat4} 뷰 행렬
      */
     getViewMatrix() {
         // Assignment3와 동일한 방식: 직접 설정된 eye, at, up으로 lookAt 생성
         // eye는 마우스 이벤트에서 이미 설정됨
         
-        // Z축 회전이 있다면 업 벡터에 적용
-        if (this.rotationZ !== 0) {
+        // UI 슬라이더 값이 변경되었을 때는 그 값을 사용
+        // Z축 회전이 있다면 기본 업 벡터에 회전 적용 (슬라이더 값이 기본값일 때만)
+        const isDefaultUp = (this.up[0] === 0 && this.up[1] === 1 && this.up[2] === 0);
+        
+        if (this.rotationZ !== 0 && isDefaultUp) {
             const radZ = radians(this.rotationZ);
             const cosZ = Math.cos(radZ);
             const sinZ = Math.sin(radZ);
-            this.up = vec3(-sinZ, cosZ, 0);
+            const upVector = vec3(-sinZ, cosZ, 0);
+            return lookAt(this.eye, this.at, upVector);
         } else {
-            this.up = vec3(0, 1, 0); // 기본 업 벡터
+            // UI 슬라이더에서 설정된 up 벡터 값을 직접 사용
+            return lookAt(this.eye, this.at, this.up);
         }
-        
-        // Assignment3와 동일한 방식: lookAt을 사용한 뷰 행렬 생성
-        const viewMatrix = lookAt(this.eye, this.at, this.up);
-        
-        return viewMatrix;
     }
     
     /**

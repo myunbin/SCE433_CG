@@ -11,6 +11,14 @@
  * @description 모든 관절에 완전한 3DOF 자유도 제공 (창의적 포즈 제작을 위해)
  */
 const JOINT_CONFIG = {
+    // 몸통/허리 관절: 3DOF (완전 자유)
+    TORSO: {
+        axes: ['X', 'Y', 'Z'],
+        ranges: { X: [-180, 180], Y: [-180, 180], Z: [-180, 180] },
+        names: { X: 'X-axis Rotation', Y: 'Y-axis Rotation', Z: 'Z-axis Rotation' },
+        displayName: '몸통/허리'
+    },
+    
     // 머리/목 관절: 3DOF (완전 자유)
     HEAD: {
         axes: ['X', 'Y', 'Z'],
@@ -144,6 +152,7 @@ const JOINT_HIERARCHY = {
  * @description 픽토그램과 동일한 실제 달리기 포즈 (사용자 조정 완료)
  */
 const RUNNING_POSE = {
+    TORSO: { x: 0, y: 0, z: 0 },                      // 몸통 기본 위치
     HEAD: { x: 0, y: 0, z: 0 },                       // 머리 기본 위치
     LEFT_UPPER_ARM: { x: -76, y: 0, z: 0 },           // 왼팔 뒤로
     RIGHT_UPPER_ARM: { x: 66, y: 0, z: 0 },           // 오른팔 앞으로
@@ -177,8 +186,8 @@ class PoseController {
         // 기본 회전값 초기화
         this.initializeJointRotations();
         
-        // 달리기 포즈 적용
-        this.applyRunningPose();
+        // 기본 포즈를 모델에 적용
+        this.applyHierarchicalRotations();
         
         // UI 이벤트 리스너 설정
         this.setupEventListeners();
@@ -212,8 +221,6 @@ class PoseController {
         
         // 계층적으로 모델에 적용
         this.applyHierarchicalRotations();
-        
-        console.log('달리기 포즈가 적용되었습니다.');
     }
     
     /**
@@ -333,14 +340,17 @@ class PoseController {
      * @method applyHierarchicalRotations
      */
     applyHierarchicalRotations() {
-        // 각 관절의 회전값을 직접 모델에 적용
+        // 각 관절의 회전값을 새로운 Node 시스템에 적용
         Object.keys(this.jointRotations).forEach(jointName => {
             const rotation = this.jointRotations[jointName];
             
-            // 모델의 nodeTransforms에 회전값 적용
-            if (this.humanModel.nodeTransforms[jointName]) {
-                this.humanModel.nodeTransforms[jointName].rotation = vec3(
-                    rotation.x, rotation.y, rotation.z
+            // 새로운 Node 시스템의 setNodeTransform 메서드 사용
+            if (this.humanModel.setNodeTransform) {
+                this.humanModel.setNodeTransform(
+                    jointName,
+                    vec3(0, 0, 0), // translation
+                    vec3(rotation.x, rotation.y, rotation.z), // rotation
+                    vec3(1, 1, 1)  // scale
                 );
             }
         });
@@ -463,18 +473,22 @@ class PoseController {
     }
     
     /**
-     * 달리기 포즈 재적용 (UI에서 호출용)
+     * 달리기 포즈 재적용
      * @method reapplyRunningPose
      */
     reapplyRunningPose() {
+        // PoseController의 내부 데이터를 달리기 포즈로 업데이트
         this.applyRunningPose();
+        
+        // 현재 선택된 관절이 있다면 슬라이더 업데이트
         this.updateSliders();
         
+        this.showStatusMessage('달리기 포즈가 적용되었습니다.', 'success');
+        
+        // 렌더링 업데이트
         if (window.render) {
             window.render();
         }
-        
-        this.showStatusMessage('달리기 포즈가 적용되었습니다.', 'success');
     }
     
     /**

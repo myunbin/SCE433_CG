@@ -10,123 +10,25 @@
     <script id="vertex-shader" type="x-shader/x-vertex">
     attribute vec4 vPosition;
     attribute vec4 vColor;
-    attribute vec3 vNormal;
-    attribute vec2 vTexCoord;
     
     uniform mat4 uModelViewMatrix;
     uniform mat4 uProjectionMatrix;
-    uniform mat3 uNormalMatrix;
-    uniform vec4 uLightPosition; // w 성분으로 directional/point 구분
     
     varying vec4 fColor;
-    varying vec3 fPosition;
-    varying vec3 fNormal;
-    varying vec3 fLightPosition;
-    varying vec2 fTexCoord;
     
     void main() {
-        // 위치 변환
-        vec4 worldPosition = uModelViewMatrix * vPosition;
-        gl_Position = uProjectionMatrix * worldPosition;
-        
-        // 프래그먼트 셰이더로 전달할 변수들
-        fPosition = worldPosition.xyz;
-        fNormal = normalize(uNormalMatrix * vNormal);
-        fLightPosition = (uModelViewMatrix * uLightPosition).xyz;
-        fTexCoord = vTexCoord;
+        gl_Position = uProjectionMatrix * uModelViewMatrix * vPosition;
         fColor = vColor;
     }
     </script>
     
     <script id="fragment-shader" type="x-shader/x-fragment">
-    precision highp float;
+    precision mediump float;
     
     varying vec4 fColor;
-    varying vec3 fPosition;
-    varying vec3 fNormal;
-    varying vec3 fLightPosition;
-    varying vec2 fTexCoord;
-    
-    // 조명 관련 유니폼
-    uniform vec4 uLightPosition; // w=1이면 point light, w=0이면 directional light
-    uniform vec3 uLightAmbient;
-    uniform vec3 uLightDiffuse;
-    uniform vec3 uLightSpecular;
-    
-    // 재질 관련 유니폼
-    uniform vec3 uMaterialAmbient;
-    uniform vec3 uMaterialDiffuse;
-    uniform vec3 uMaterialSpecular;
-    uniform float uMaterialShininess;
-    
-    // 거리 감쇠 계수 (ex4 스타일)
-    uniform float uAttenuationA;
-    uniform float uAttenuationB; 
-    uniform float uAttenuationC;
-    
-    // 텍스처 유니폼
-    uniform sampler2D uTexture;
-    uniform bool uUseTexture;
     
     void main() {
-        // 정규화된 노말 벡터
-        vec3 N = normalize(fNormal);
-        
-        // 조명 벡터 계산
-        vec3 L;
-        float attenuation = 1.0;
-        
-        if (uLightPosition.w == 1.0) {
-            // Point light: 위치에서 거리 계산
-            L = normalize(fLightPosition - fPosition);
-            float distance = length(fLightPosition - fPosition);
-            attenuation = 1.0 / (uAttenuationA + uAttenuationB * distance + uAttenuationC * distance * distance);
-        } else {
-            // Directional light: 방향만 사용
-            L = normalize(fLightPosition);
-        }
-        
-        // 뷰 벡터와 하프 벡터
-        vec3 V = normalize(-fPosition);
-        vec3 H = normalize(L + V);
-        
-        // Ambient 성분 (상수가 아닌 조명 방향에 따라 조절)
-        float ambientFactor = 0.3 + 0.2 * max(dot(N, L), 0.0); // 기본 0.3에서 최대 0.5까지
-        vec3 ambient = uLightAmbient * uMaterialAmbient * ambientFactor;
-        
-        // Diffuse 성분
-        float NdotL = max(dot(N, L), 0.0);
-        vec3 diffuse = uLightDiffuse * uMaterialDiffuse * NdotL;
-        
-        // Specular 성분 (Blinn-Phong)
-        float NdotH = max(dot(N, H), 0.0);
-        vec3 specular = uLightSpecular * uMaterialSpecular * pow(NdotH, uMaterialShininess);
-        
-        // 조명이 뒷면에서 비추는 경우 specular 제거
-        if (NdotL <= 0.0) {
-            specular = vec3(0.0, 0.0, 0.0);
-        }
-        
-        // 거리 감쇠 적용 (ambient는 적게 적용)
-        vec3 finalColor = ambient + attenuation * (diffuse + specular);
-        
-        // 재질 색상 적용
-        finalColor *= fColor.rgb;
-        
-        // 텍스처가 있을 경우 적용
-        if (uUseTexture) {
-            vec4 textureColor = texture2D(uTexture, fTexCoord);
-            
-            // 텍스처 부분에서 조명 효과를 더 강하게 적용
-            float lightInfluence = 0.3 + 0.7 * max(dot(N, L), 0.0); // 조명의 영향을 더 크게
-            vec3 adjustedTexture = textureColor.rgb * lightInfluence;
-            
-            // 조명과 텍스처를 적절히 조합
-            finalColor = finalColor * 0.7 + adjustedTexture * 0.3;
-            gl_FragColor = vec4(finalColor, textureColor.a * fColor.a);
-        } else {
-            gl_FragColor = vec4(finalColor, fColor.a);
-        }
+        gl_FragColor = fColor;
     }
     </script>
     
@@ -137,7 +39,6 @@
     
     <!-- 모듈화된 JavaScript 파일들 -->
     <script type="text/javascript" src="js/camera.js"></script>
-    <script type="text/javascript" src="js/blinn-phong-lighting.js"></script>
     <script type="text/javascript" src="js/model.js"></script>
     <script type="text/javascript" src="js/poseController.js"></script>
     <script type="text/javascript" src="js/poseStorage.js"></script>
@@ -193,6 +94,7 @@
                     <div class="controls">
                         <select id="joint-selector">
                             <option value="">관절을 선택하세요</option>
+                            <option value="TORSO">몸통/허리</option>
                             <option value="HEAD">머리/목</option>
                             <option value="LEFT_UPPER_ARM">왼쪽 어깨</option>
                             <option value="RIGHT_UPPER_ARM">오른쪽 어깨</option>
@@ -303,111 +205,6 @@
                     </div>
                 </div>
             </div>
-            
-            <!-- 블린-퐁 조명 -->
-            <div class="accordion-section">
-                <div class="accordion-header" data-target="lighting-control">
-                    <span class="accordion-title">💡 블린-퐁 조명</span>
-                    <span class="accordion-arrow">▼</span>
-                </div>
-                <div class="accordion-content active" id="lighting-control">
-                    <!-- 조명 위치 -->
-                    <div class="subsection-title">조명 위치</div>
-                    <div class="slider-controls">
-                        <div class="slider-container">
-                            <div class="slider-label">
-                                <span>조명 X</span>
-                                <span id="light-x-value">2.0</span>
-                            </div>
-                            <input type="range" id="light-x" min="-10" max="10" value="2" step="0.1">
-                        </div>
-                        
-                        <div class="slider-container">
-                            <div class="slider-label">
-                                <span>조명 Y</span>
-                                <span id="light-y-value">2.0</span>
-                            </div>
-                            <input type="range" id="light-y" min="-10" max="10" value="2" step="0.1">
-                        </div>
-                        
-                        <div class="slider-container">
-                            <div class="slider-label">
-                                <span>조명 Z</span>
-                                <span id="light-z-value">3.0</span>
-                            </div>
-                            <input type="range" id="light-z" min="-10" max="10" value="3" step="0.1">
-                        </div>
-                    </div>
-                    
-                    <!-- 조명 강도 -->
-                    <div class="subsection-title">조명 강도</div>
-                    <div class="slider-controls">
-                        <div class="slider-container">
-                            <div class="slider-label">
-                                <span>Ambient</span>
-                                <span id="ambient-value">0.4</span>
-                            </div>
-                            <input type="range" id="ambient-intensity" min="0" max="1" value="0.4" step="0.01">
-                        </div>
-                        
-                        <div class="slider-container">
-                            <div class="slider-label">
-                                <span>Diffuse</span>
-                                <span id="diffuse-value">1.0</span>
-                            </div>
-                            <input type="range" id="diffuse-intensity" min="0" max="1" value="1.0" step="0.01">
-                        </div>
-                        
-                        <div class="slider-container">
-                            <div class="slider-label">
-                                <span>Specular</span>
-                                <span id="specular-value">0.8</span>
-                            </div>
-                            <input type="range" id="specular-intensity" min="0" max="1" value="0.8" step="0.01">
-                        </div>
-                    </div>
-                    
-                    <!-- 재질 속성 -->
-                    <div class="subsection-title">재질 속성</div>
-                    <div class="slider-controls">
-                        <div class="slider-container">
-                            <div class="slider-label">
-                                <span>재질 Ambient</span>
-                                <span id="material-ambient-value">0.6</span>
-                            </div>
-                            <input type="range" id="material-ambient" min="0" max="1" value="0.6" step="0.01">
-                        </div>
-                        
-                        <div class="slider-container">
-                            <div class="slider-label">
-                                <span>재질 Diffuse</span>
-                                <span id="material-diffuse-value">1.0</span>
-                            </div>
-                            <input type="range" id="material-diffuse" min="0" max="1" value="1.0" step="0.01">
-                        </div>
-                        
-                        <div class="slider-container">
-                            <div class="slider-label">
-                                <span>재질 Specular</span>
-                                <span id="material-specular-value">0.7</span>
-                            </div>
-                            <input type="range" id="material-specular" min="0" max="1" value="0.7" step="0.01">
-                        </div>
-                        
-                        <div class="slider-container">
-                            <div class="slider-label">
-                                <span>광택도 (Shininess)</span>
-                                <span id="shininess-value">32</span>
-                            </div>
-                            <input type="range" id="shininess" min="1" max="128" value="32" step="1">
-                        </div>
-                    </div>
-                    
-                    <div class="controls">
-                        <button id="reset-lighting">조명 초기화</button>
-                    </div>
-                </div>
-            </div>
 
             <!-- 카메라 뷰 조작 -->
             <div class="accordion-section">
@@ -488,7 +285,7 @@
                                 <span>Up X</span>
                                 <span id="up-x-value">0.0</span>
                             </div>
-                            <input type="range" id="up-x" min="-1" max="1" value="0" step="0.1">
+                            <input type="range" id="up-x" min="-1" max="1" value="0" step="0.01">
                         </div>
                         
                         <div class="slider-container">
@@ -496,7 +293,7 @@
                                 <span>Up Y</span>
                                 <span id="up-y-value">1.0</span>
                             </div>
-                            <input type="range" id="up-y" min="-1" max="1" value="1" step="0.1">
+                            <input type="range" id="up-y" min="-1" max="1" value="1" step="0.01">
                         </div>
                         
                         <div class="slider-container">
@@ -504,7 +301,7 @@
                                 <span>Up Z</span>
                                 <span id="up-z-value">0.0</span>
                             </div>
-                            <input type="range" id="up-z" min="-1" max="1" value="0" step="0.1">
+                            <input type="range" id="up-z" min="-1" max="1" value="0" step="0.01">
                         </div>
                     </div>
                     

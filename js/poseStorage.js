@@ -22,7 +22,7 @@ class PoseStorage {
         this.savedPoses = {};
         
         // 저장된 포즈 로드
-        this.loadFromStorage();
+        this.loadPoses();
         
         // UI 이벤트 리스너 설정
         this.setupEventListeners();
@@ -226,17 +226,16 @@ class PoseStorage {
     
     /**
      * 로컬스토리지에서 포즈 데이터 로드
-     * @method loadFromStorage
+     * @method loadPoses
      */
-    loadFromStorage() {
+    loadPoses() {
         try {
-            const stored = localStorage.getItem(this.storageKey);
-            if (stored) {
-                this.savedPoses = JSON.parse(stored);
-            }
+            const saved = localStorage.getItem(this.storageKey);
+            this.savedPoses = saved ? JSON.parse(saved) : {};
+            this.updatePoseList();
         } catch (error) {
-            console.error('포즈 데이터 로드 실패:', error);
             this.savedPoses = {};
+            this.updatePoseList();
         }
     }
     
@@ -248,8 +247,7 @@ class PoseStorage {
         try {
             localStorage.setItem(this.storageKey, JSON.stringify(this.savedPoses));
         } catch (error) {
-            console.error('포즈 데이터 저장 실패:', error);
-            this.showStatusMessage('포즈 저장 중 오류가 발생했습니다.', 'error');
+            // 저장 실패시 무시
         }
     }
     
@@ -487,7 +485,6 @@ class PoseStorage {
             }
             
         } catch (error) {
-            console.error('포즈 가져오기 실패:', error);
             this.showStatusMessage(`포즈 가져오기 실패: ${error.message}`, 'error');
         }
     }
