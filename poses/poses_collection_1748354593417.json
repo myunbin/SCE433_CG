@@ -1,0 +1,464 @@
+{
+  "version": "1.0",
+  "type": "collection",
+  "poses": {
+    "Athletics": {
+      "name": "Athletics",
+      "data": {
+        "HEAD": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "LEFT_UPPER_ARM": {
+          "x": -76,
+          "y": 0,
+          "z": 0
+        },
+        "RIGHT_UPPER_ARM": {
+          "x": 66,
+          "y": 0,
+          "z": 0
+        },
+        "LEFT_LOWER_ARM": {
+          "x": 56,
+          "y": 0,
+          "z": 0
+        },
+        "RIGHT_LOWER_ARM": {
+          "x": 83,
+          "y": 0,
+          "z": 0
+        },
+        "LEFT_HAND": {
+          "x": -1,
+          "y": 11,
+          "z": 0
+        },
+        "RIGHT_HAND": {
+          "x": 34,
+          "y": 8,
+          "z": 0
+        },
+        "LEFT_UPPER_LEG": {
+          "x": 91,
+          "y": 0,
+          "z": 0
+        },
+        "RIGHT_UPPER_LEG": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "LEFT_LOWER_LEG": {
+          "x": -151,
+          "y": 0,
+          "z": 0
+        },
+        "RIGHT_LOWER_LEG": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "LEFT_FOOT": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "RIGHT_FOOT": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        }
+      },
+      "timestamp": 1748009149798,
+      "description": "8개 부위 조정됨"
+    },
+    "Marathon": {
+      "name": "Marathon",
+      "data": {
+        "TORSO": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "HEAD": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "LEFT_UPPER_ARM": {
+          "x": 43,
+          "y": 17,
+          "z": 0
+        },
+        "RIGHT_UPPER_ARM": {
+          "x": -59,
+          "y": 12,
+          "z": 0
+        },
+        "LEFT_LOWER_ARM": {
+          "x": 96,
+          "y": -16,
+          "z": 0
+        },
+        "RIGHT_LOWER_ARM": {
+          "x": 72,
+          "y": -7,
+          "z": 0
+        },
+        "LEFT_HAND": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "RIGHT_HAND": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "LEFT_UPPER_LEG": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "RIGHT_UPPER_LEG": {
+          "x": 65,
+          "y": -1,
+          "z": 0
+        },
+        "LEFT_LOWER_LEG": {
+          "x": -13,
+          "y": 0,
+          "z": 0
+        },
+        "RIGHT_LOWER_LEG": {
+          "x": -82,
+          "y": 0,
+          "z": 0
+        },
+        "LEFT_FOOT": {
+          "x": -38,
+          "y": 0,
+          "z": 0
+        },
+        "RIGHT_FOOT": {
+          "x": -3,
+          "y": 0,
+          "z": 0
+        }
+      },
+      "timestamp": 1748350210516,
+      "description": "9개 부위 조정됨"
+    },
+    "Handball": {
+      "name": "Handball",
+      "data": {
+        "TORSO": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "HEAD": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "LEFT_UPPER_ARM": {
+          "x": 97,
+          "y": 6,
+          "z": 0
+        },
+        "RIGHT_UPPER_ARM": {
+          "x": -77,
+          "y": 40,
+          "z": 0
+        },
+        "LEFT_LOWER_ARM": {
+          "x": 13,
+          "y": 0,
+          "z": 0
+        },
+        "RIGHT_LOWER_ARM": {
+          "x": -71,
+          "y": -20,
+          "z": 0
+        },
+        "LEFT_HAND": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "RIGHT_HAND": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "LEFT_UPPER_LEG": {
+          "x": 78,
+          "y": -30,
+          "z": 0
+        },
+        "RIGHT_UPPER_LEG": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "LEFT_LOWER_LEG": {
+          "x": -116,
+          "y": 6,
+          "z": 0
+        },
+        "RIGHT_LOWER_LEG": {
+          "x": -30,
+          "y": 0,
+          "z": 0
+        },
+        "LEFT_FOOT": {
+          "x": -17,
+          "y": -10,
+          "z": 0
+        },
+        "RIGHT_FOOT": {
+          "x": 12,
+          "y": -39,
+          "z": 0
+        }
+      },
+      "timestamp": 1748351491435,
+      "description": "9개 부위 조정됨"
+    },
+    "Softball": {
+      "name": "Softball",
+      "data": {
+        "TORSO": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "HEAD": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "LEFT_UPPER_ARM": {
+          "x": 82,
+          "y": 35,
+          "z": 0
+        },
+        "RIGHT_UPPER_ARM": {
+          "x": -174,
+          "y": 24,
+          "z": -13
+        },
+        "LEFT_LOWER_ARM": {
+          "x": 8,
+          "y": 0,
+          "z": 16
+        },
+        "RIGHT_LOWER_ARM": {
+          "x": -8,
+          "y": 24,
+          "z": -6
+        },
+        "LEFT_HAND": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "RIGHT_HAND": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "LEFT_UPPER_LEG": {
+          "x": 43,
+          "y": 0,
+          "z": -22
+        },
+        "RIGHT_UPPER_LEG": {
+          "x": -20,
+          "y": -7,
+          "z": 22
+        },
+        "LEFT_LOWER_LEG": {
+          "x": -52,
+          "y": -16,
+          "z": 17
+        },
+        "RIGHT_LOWER_LEG": {
+          "x": -22,
+          "y": 0,
+          "z": 0
+        },
+        "LEFT_FOOT": {
+          "x": 18,
+          "y": 7,
+          "z": 18
+        },
+        "RIGHT_FOOT": {
+          "x": -15,
+          "y": -11,
+          "z": 4
+        }
+      },
+      "timestamp": 1748352636375,
+      "description": "10개 부위 조정됨"
+    },
+    "Rugby": {
+      "name": "Rugby",
+      "data": {
+        "TORSO": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "HEAD": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "LEFT_UPPER_ARM": {
+          "x": 28,
+          "y": 26,
+          "z": 0
+        },
+        "RIGHT_UPPER_ARM": {
+          "x": 44,
+          "y": -2,
+          "z": 0
+        },
+        "LEFT_LOWER_ARM": {
+          "x": 82,
+          "y": -56,
+          "z": 0
+        },
+        "RIGHT_LOWER_ARM": {
+          "x": 47,
+          "y": 45,
+          "z": 0
+        },
+        "LEFT_HAND": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "RIGHT_HAND": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "LEFT_UPPER_LEG": {
+          "x": 88,
+          "y": 9,
+          "z": 0
+        },
+        "RIGHT_UPPER_LEG": {
+          "x": 0,
+          "y": -22,
+          "z": 0
+        },
+        "LEFT_LOWER_LEG": {
+          "x": -123,
+          "y": 6,
+          "z": 0
+        },
+        "RIGHT_LOWER_LEG": {
+          "x": -6,
+          "y": 0,
+          "z": 0
+        },
+        "LEFT_FOOT": {
+          "x": 10,
+          "y": 15,
+          "z": 0
+        },
+        "RIGHT_FOOT": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        }
+      },
+      "timestamp": 1748353171658,
+      "description": "9개 부위 조정됨"
+    },
+    "Football": {
+      "name": "Football",
+      "data": {
+        "TORSO": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "HEAD": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "LEFT_UPPER_ARM": {
+          "x": 34,
+          "y": 29,
+          "z": 0
+        },
+        "RIGHT_UPPER_ARM": {
+          "x": -77,
+          "y": 38,
+          "z": 0
+        },
+        "LEFT_LOWER_ARM": {
+          "x": 80,
+          "y": -1,
+          "z": 0
+        },
+        "RIGHT_LOWER_ARM": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "LEFT_HAND": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "RIGHT_HAND": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "LEFT_UPPER_LEG": {
+          "x": 52,
+          "y": 35,
+          "z": 0
+        },
+        "RIGHT_UPPER_LEG": {
+          "x": 3,
+          "y": 13,
+          "z": 15
+        },
+        "LEFT_LOWER_LEG": {
+          "x": -21,
+          "y": -8,
+          "z": 0
+        },
+        "RIGHT_LOWER_LEG": {
+          "x": -77,
+          "y": -18,
+          "z": 0
+        },
+        "LEFT_FOOT": {
+          "x": 25,
+          "y": 31,
+          "z": 0
+        },
+        "RIGHT_FOOT": {
+          "x": 6,
+          "y": -20,
+          "z": 0
+        }
+      },
+      "timestamp": 1748354538957,
+      "description": "9개 부위 조정됨"
+    }
+  },
+  "exportDate": "2025-05-27T14:03:13.417Z"
+}

@@ -59,7 +59,7 @@ window.onload = function init() {
         
         poseStorage = new PoseStorage(poseController);
         
-        animation = new Animation(poseController, poseStorage, camera);
+        animation = new Animation(poseController, poseStorage, camera, lighting);
     } catch (error) {
         return;
     }

@@ -2,13 +2,13 @@
  * @fileoverview 애니메이션 모듈 - 키프레임 애니메이션 관리
  * @description 저장된 포즈들을 키프레임으로 하여 부드러운 애니메이션을 생성하고 재생하는 모듈
  * @author SCE433 Computer Graphics Team
- * @version 2.2.0 - 전체 애니메이션 길이 조절 기능 추가
+ * @version 2.3.0 - 조명 애니메이션 기능 추가
  */
 
 /**
  * 키프레임 애니메이션을 관리하는 클래스
  * @class Animation
- * @description 포즈와 카메라 상태를 함께 관리하는 통합 애니메이션 제어
+ * @description 포즈, 카메라, 조명 상태를 함께 관리하는 통합 애니메이션 제어
  */
 class Animation {
     /**
@@ -16,11 +16,13 @@ class Animation {
      * @param {PoseController} poseController - 포즈 컨트롤러 인스턴스
      * @param {PoseStorage} poseStorage - 포즈 저장소 인스턴스
      * @param {Camera} camera - 카메라 인스턴스 (선택사항)
+     * @param {Lighting} lighting - 조명 인스턴스 (선택사항)
      */
-    constructor(poseController, poseStorage, camera = null) {
+    constructor(poseController, poseStorage, camera = null, lighting = null) {
         this.poseController = poseController;
         this.poseStorage = poseStorage;
         this.camera = camera;
+        this.lighting = lighting;
         
         // 애니메이션 상태
         this.keyframes = [];
@@ -90,11 +92,13 @@ class Animation {
     addCurrentStateAsKeyframe() {
         const currentPose = this.poseController.getCurrentPose();
         const currentCamera = this.camera ? this.camera.getCameraState() : null;
+        const currentLighting = this.lighting ? this.lighting.getState() : null;
         
         // 첫 번째 키프레임은 항상 기본 스탠딩 포즈로 설정
         if (this.keyframes.length === 0) {
             const standingPose = this.getStandingPose();
             const defaultCamera = this.camera ? this.camera.getDefaultState() : null;
+            const defaultLighting = this.lighting ? this.getDefaultLightingState() : null;
             
             // 시작 키프레임 (시간 0)
             const startKeyframe = {
@@ -102,6 +106,7 @@ class Animation {
                 time: 0,
                 pose: standingPose,
                 camera: defaultCamera,
+                lighting: defaultLighting,
                 name: '시작 (스탠딩)',
                 isStanding: true,
                 isStart: true
@@ -113,6 +118,7 @@ class Animation {
                 time: this.defaultFrameDuration * 2, // 기본 길이
                 pose: standingPose,
                 camera: defaultCamera,
+                lighting: defaultLighting,
                 name: '끝 (스탠딩)',
                 isStanding: true,
                 isEnd: true
@@ -122,7 +128,8 @@ class Animation {
             
             // 현재 포즈가 스탠딩 포즈와 같고 카메라도 기본 상태라면 추가하지 않음
             if (this.isPoseSame(currentPose, standingPose) && 
-                this.isCameraSame(currentCamera, defaultCamera)) {
+                this.isCameraSame(currentCamera, defaultCamera) &&
+                this.isLightingSame(currentLighting, defaultLighting)) {
                 this.showStatusMessage('시작과 끝 키프레임이 추가되었습니다. 포즈를 변경한 후 키프레임을 추가하세요.', 'info');
                 this.updateTotalDuration();
                 this.updateUI();
@@ -138,8 +145,10 @@ class Animation {
         // 첫 번째 키프레임이 있을 때, 빈 포즈면서 카메라도 변화가 없다면 추가하지 않음
         if (isEmptyPose && this.keyframes.length >= 2) {
             const startCamera = this.keyframes[0].camera;
-            if (this.isCameraSame(currentCamera, startCamera)) {
-                this.showStatusMessage('변경된 포즈나 카메라 시점이 없습니다.', 'error');
+            const startLighting = this.keyframes[0].lighting;
+            if (this.isCameraSame(currentCamera, startCamera) &&
+                this.isLightingSame(currentLighting, startLighting)) {
+                this.showStatusMessage('변경된 포즈나 카메라 시점, 조명이 없습니다.', 'error');
                 return;
             }
         }
@@ -154,6 +163,7 @@ class Animation {
             time: newTime,
             pose: { ...currentPose },
             camera: currentCamera ? { ...currentCamera } : null,
+            lighting: currentLighting ? { ...currentLighting } : null,
             name: `키프레임 ${middleKeyframeCount}`
         };
         
@@ -271,6 +281,9 @@ class Animation {
         if (this.camera) {
             this.camera.reset();
         }
+        if (this.lighting) {
+            this.lighting.reset();
+        }
         
         this.showStatusMessage('애니메이션이 클리어되었습니다.', 'success');
     }
@@ -335,6 +348,9 @@ class Animation {
         if (this.camera) {
             this.camera.reset();
         }
+        if (this.lighting) {
+            this.lighting.reset();
+        }
         
         this.updateTimelinePosition();
         this.showStatusMessage('애니메이션이 정지되었습니다.', 'info');
@@ -388,6 +404,9 @@ class Animation {
             if (this.camera && lastKeyframe.camera) {
                 this.camera.setCameraState(lastKeyframe.camera);
             }
+            if (this.lighting && lastKeyframe.lighting) {
+                this.lighting.setState(lastKeyframe.lighting);
+            }
             return;
         }
         
@@ -421,6 +440,9 @@ class Animation {
             if (this.camera && closestKeyframe.camera) {
                 this.camera.setCameraState(closestKeyframe.camera);
             }
+            if (this.lighting && closestKeyframe.lighting) {
+                this.lighting.setState(closestKeyframe.lighting);
+            }
             return;
         }
         
@@ -444,6 +466,16 @@ class Animation {
                 progress
             );
             this.camera.setCameraState(interpolatedCamera);
+        }
+        
+        // 조명 보간 및 적용
+        if (this.lighting && currentKeyframe.lighting && nextKeyframe.lighting) {
+            const interpolatedLighting = this.interpolateLighting(
+                currentKeyframe.lighting,
+                nextKeyframe.lighting,
+                progress
+            );
+            this.lighting.setState(interpolatedLighting);
         }
     }
     
@@ -591,6 +623,9 @@ class Animation {
                 this.poseController.setPose(keyframe.pose);
                 if (this.camera && keyframe.camera) {
                     this.camera.setCameraState(keyframe.camera);
+                }
+                if (this.lighting && keyframe.lighting) {
+                    this.lighting.setState(keyframe.lighting);
                 }
                 this.updateTimelinePosition();
                 this.showStatusMessage(`${keyframe.name}으로 이동했습니다.`, 'info');
@@ -818,7 +853,7 @@ class Animation {
             keyframes: this.keyframes,
             totalDuration: this.totalDuration,
             defaultFrameDuration: this.defaultFrameDuration,
-            version: '2.2.0'
+            version: '2.3.0'
         };
     }
     
@@ -888,5 +923,129 @@ class Animation {
         if (this.poseController && this.poseController.showStatusMessage) {
             this.poseController.showStatusMessage(message, type);
         }
+    }
+    
+    /**
+     * 기본 조명 상태 반환
+     * @method getDefaultLightingState
+     * @returns {Object} 기본 조명 상태
+     */
+    getDefaultLightingState() {
+        return {
+            position: [0.0, 0.0, -2.0, 1.0],
+            type: 'point',
+            intensity: {
+                ambient: 0.2,
+                diffuse: 0.8,
+                specular: 1.0
+            },
+            shininess: 20.0,
+            attenuation: {
+                constant: 1.0,
+                linear: 0.01,
+                quadratic: 0.001
+            }
+        };
+    }
+    
+    /**
+     * 두 조명 상태가 같은지 비교
+     * @method isLightingSame
+     * @param {Object} lighting1 - 첫 번째 조명 상태
+     * @param {Object} lighting2 - 두 번째 조명 상태
+     * @returns {boolean} 같으면 true
+     */
+    isLightingSame(lighting1, lighting2) {
+        if (!lighting1 && !lighting2) return true;
+        if (!lighting1 || !lighting2) return false;
+        
+        const threshold = 0.01; // 허용 오차
+        
+        // 위치 비교
+        for (let i = 0; i < 4; i++) {
+            if (Math.abs(lighting1.position[i] - lighting2.position[i]) > threshold) {
+                return false;
+            }
+        }
+        
+        // 타입 비교
+        if (lighting1.type !== lighting2.type) return false;
+        
+        // 강도 비교
+        if (Math.abs(lighting1.intensity.ambient - lighting2.intensity.ambient) > threshold ||
+            Math.abs(lighting1.intensity.diffuse - lighting2.intensity.diffuse) > threshold ||
+            Math.abs(lighting1.intensity.specular - lighting2.intensity.specular) > threshold) {
+            return false;
+        }
+        
+        // 반짝임 비교
+        if (Math.abs(lighting1.shininess - lighting2.shininess) > threshold) {
+            return false;
+        }
+        
+        return true;
+    }
+    
+    /**
+     * 두 조명 상태 사이를 보간
+     * @method interpolateLighting
+     * @param {Object} lighting1 - 시작 조명 상태
+     * @param {Object} lighting2 - 끝 조명 상태
+     * @param {number} t - 보간 비율 (0-1)
+     * @returns {Object} 보간된 조명 상태
+     */
+    interpolateLighting(lighting1, lighting2, t) {
+        // 부드러운 보간을 위한 이징 함수
+        const easedT = t < 0.5 
+            ? 4 * t * t * t 
+            : 1 - Math.pow(-2 * t + 2, 3) / 2;
+        
+        const interpolated = {
+            position: [],
+            type: lighting1.type, // 타입은 첫 번째 키프레임 따르기
+            intensity: {},
+            shininess: 0,
+            attenuation: {}
+        };
+        
+        // 위치 보간
+        for (let i = 0; i < 4; i++) {
+            interpolated.position[i] = lighting1.position[i] + 
+                (lighting2.position[i] - lighting1.position[i]) * easedT;
+        }
+        
+        // 타입이 다른 경우 처리
+        if (lighting1.type !== lighting2.type) {
+            // 보간 중간점에서 타입 전환
+            interpolated.type = t < 0.5 ? lighting1.type : lighting2.type;
+            interpolated.position[3] = interpolated.type === 'point' ? 1.0 : 0.0;
+        }
+        
+        // 강도 보간
+        interpolated.intensity.ambient = lighting1.intensity.ambient + 
+            (lighting2.intensity.ambient - lighting1.intensity.ambient) * easedT;
+        interpolated.intensity.diffuse = lighting1.intensity.diffuse + 
+            (lighting2.intensity.diffuse - lighting1.intensity.diffuse) * easedT;
+        interpolated.intensity.specular = lighting1.intensity.specular + 
+            (lighting2.intensity.specular - lighting1.intensity.specular) * easedT;
+        
+        // 반짝임 보간
+        interpolated.shininess = lighting1.shininess + 
+            (lighting2.shininess - lighting1.shininess) * easedT;
+        
+        // 감쇠 계수 보간 (점 광원일 때만 의미 있음)
+        if (lighting1.attenuation && lighting2.attenuation) {
+            interpolated.attenuation.constant = lighting1.attenuation.constant + 
+                (lighting2.attenuation.constant - lighting1.attenuation.constant) * easedT;
+            interpolated.attenuation.linear = lighting1.attenuation.linear + 
+                (lighting2.attenuation.linear - lighting1.attenuation.linear) * easedT;
+            interpolated.attenuation.quadratic = lighting1.attenuation.quadratic + 
+                (lighting2.attenuation.quadratic - lighting1.attenuation.quadratic) * easedT;
+        } else {
+            interpolated.attenuation = lighting1.attenuation || lighting2.attenuation || 
+                { constant: 1.0, linear: 0.01, quadratic: 0.001 };
+        }
+        
+        return interpolated;
     }
 } 
