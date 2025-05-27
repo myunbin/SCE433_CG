@@ -566,32 +566,30 @@ class HumanModel {
         ];
         
         const indices = [
-            // 앞면 (Z+ 방향을 향한 법선, 반시계방향)
-            0, 1, 2, 1, 3, 2,
-            2, 3, 4, 3, 5, 4,
+            // 앞면 (Z+ 방향을 향한 법선, 시계방향으로 변경하여 법선 반전)
+            0, 2, 1, 1, 2, 3,
+            2, 4, 3, 3, 4, 5,
             
-            // 뒷면 (Z- 방향을 향한 법선, 반시계방향 - 뒤에서 바라볼 때) 
-            7, 6, 9, 6, 8, 9,
-            9, 8, 11, 8, 10, 11,
+            // 뒷면 (Z- 방향을 향한 법선, 시계방향으로 변경하여 법선 반전) 
+            6, 7, 8, 7, 9, 8,
+            8, 9, 10, 9, 11, 10,
             
-            // 왼쪽 측면 (X- 방향을 향한 법선, 반시계방향 - 왼쪽에서 볼 때)
-            0, 2, 6, 2, 8, 6,
-            2, 4, 8, 4, 10, 8,
+            // 왼쪽 측면 (X- 방향을 향한 법선, 시계방향으로 변경하여 법선 반전)
+            0, 6, 2, 2, 6, 8,
+            2, 8, 4, 4, 8, 10,
             
-            // 오른쪽 측면 (X+ 방향을 향한 법선, 반시계방향 - 오른쪽에서 볼 때)
-            7, 3, 1, 7, 9, 3,
-            9, 5, 3, 9, 11, 5,
+            // 오른쪽 측면 (X+ 방향을 향한 법선, 시계방향으로 변경하여 법선 반전)
+            1, 3, 7, 3, 9, 7,
+            3, 5, 9, 5, 11, 9,
             
-            // 윗면 (Y+ 방향을 향한 법선, 반시계방향 - 위에서 내려다볼 때)
-            // 목 부분 4각형: 0-1-7-6 (반시계방향)
-            0, 1, 6, 1, 7, 6,
+            // 윗면 (Y+ 방향을 향한 법선, 시계방향으로 변경하여 법선 반전)
+            0, 6, 1, 1, 6, 7,
             
-            // 아랫면 (Y- 방향을 향한 법선, 반시계방향 - 아래에서 올려다볼 때)  
-            // 허리 부분 4각형: 4-5-11-10 (반시계방향)
-            4, 5, 10, 5, 11, 10
+            // 아랫면 (Y- 방향을 향한 법선, 시계방향으로 변경하여 법선 반전)  
+            4, 10, 5, 5, 10, 11
         ];
         
-        return { vertices, indices, isVest: true };
+        return { vertices, indices };
     }
     
     /**
@@ -678,15 +676,11 @@ class HumanModel {
             // 외적으로 법선 계산
             const normal = normalize(cross(edge1, edge2));
             
-            // 관절인 경우 법선 반전
-            const finalNormal = (geometry.isJoint || geometry.isVest) ? 
-                vec3(-normal[0], -normal[1], -normal[2]) : normal;
-            
             // 세 정점에 동일한 법선 할당
             for (let j = 0; j < 3; j++) {
                 positions.push(vertices[indices[i + j]]);
-            colors.push(color);
-                normals.push(finalNormal);
+                colors.push(color);
+                normals.push(normal);
             }
         }
         
@@ -976,34 +970,34 @@ class HumanModel {
         const bottomCenterIndex = vertices.length;
         vertices.push(vec4(0, -blendLength/2, 0, 1.0));
         
-        // 측면 인덱스 생성 (바깥쪽을 향한 법선)
+        // 측면 인덱스 생성 (법선 반전을 위해 시계방향으로 변경)
         for (let i = 0; i < steps; i++) {
             for (let j = 0; j < segments; j++) {
                 const current = 1 + i * (segments + 1) + j; // 첫 번째 링부터 시작
                 const next = current + segments + 1;
                 
-                // createEllipsoid와 동일한 순서 사용
-                indices.push(current, current + 1, next);
-                indices.push(next, current + 1, next + 1);
+                // 시계방향으로 변경하여 법선 반전
+                indices.push(current, next, current + 1);
+                indices.push(next, next + 1, current + 1);
             }
         }
         
-        // 위쪽 면 인덱스 (위쪽을 향한 법선)
+        // 위쪽 면 인덱스 (법선 반전을 위해 시계방향으로 변경)
         for (let j = 0; j < segments; j++) {
             const current = 1 + j; // 첫 번째 링의 정점들
             const next = 1 + (j + 1) % segments;
-            indices.push(0, next, current); // 중심점에서 반시계방향
+            indices.push(0, current, next); // 중심점에서 시계방향
         }
         
-        // 아래쪽 면 인덱스 (아래쪽을 향한 법선)
+        // 아래쪽 면 인덱스 (법선 반전을 위해 반시계방향으로 변경)
         const lastRingStart = 1 + steps * (segments + 1);
         for (let j = 0; j < segments; j++) {
             const current = lastRingStart + j;
             const next = lastRingStart + (j + 1) % segments;
-            indices.push(bottomCenterIndex, current, next); // 중심점에서 시계방향
+            indices.push(bottomCenterIndex, next, current); // 중심점에서 반시계방향
         }
         
-        return { vertices, indices, isJoint: true };
+        return { vertices, indices };
     }
     
     /**
