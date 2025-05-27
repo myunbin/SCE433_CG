@@ -29,14 +29,14 @@ class Camera {
         this.position = vec3(0, 0, -3);
         
         // 표준 카메라 파라미터 (eye, at, up)
-        this.eye = vec3(0, 0, 3);      // 카메라 위치
+        this.eye = vec3(0, 0, -3);     // 카메라 위치 (Z축 음수 방향에서 정면을 바라봄)
         this.at = vec3(0, 0, 0);       // 바라보는 점
         this.up = vec3(0, 1, 0);       // 업 벡터
         this.distance = 3.0;           // 타겟으로부터의 거리
         
         // 구 좌표계 카메라 파라미터
         this.radius = 3.0;             // 중심점으로부터의 거리
-        this.theta = 0;                // 수평각 (Y축 기준 회전)
+        this.theta = Math.PI;          // 수평각 (Y축 기준 회전, π = Z축 음수 방향)
         this.phi = Math.PI / 2;        // 수직각 (X축 기준 회전, 0=위쪽, π=아래쪽)
         
         // 드래그 상태 
@@ -146,8 +146,8 @@ class Camera {
                 // 감도 조절 (마우스 이동량을 각도로 변환)
                 const sensitivity = 0.01;
                 
-                // 수평 회전 (Y축 기준) - 마우스 X 이동
-                this.theta += deltaX * sensitivity;
+                // 수평 회전 (Y축 기준) - 마우스 X 이동 (반전)
+                this.theta -= deltaX * sensitivity;
                 
                 // 수직 회전 (X축 기준) - 마우스 Y 이동 (반전)
                 this.phi -= deltaY * sensitivity;
@@ -232,9 +232,11 @@ class Camera {
      */
     updateCameraPosition() {
         // 구 좌표계를 데카르트 좌표계로 변환
-        const x = this.radius * Math.sin(this.phi) * Math.cos(this.theta);
+        // theta: Y축 기준 회전 (azimuth), 0 = +Z, π/2 = +X, π = -Z, -π/2 = -X
+        // phi: 수직각 (elevation), 0 = +Y, π/2 = 수평, π = -Y
+        const x = this.radius * Math.sin(this.phi) * Math.sin(this.theta);
         const y = this.radius * Math.cos(this.phi);
-        const z = this.radius * Math.sin(this.phi) * Math.sin(this.theta);
+        const z = this.radius * Math.sin(this.phi) * Math.cos(this.theta);
         
         // 카메라 위치 업데이트 (at 지점을 중심으로)
         this.eye = vec3(
@@ -265,7 +267,7 @@ class Camera {
         
         // 구 좌표계 각도 계산
         this.phi = Math.acos(dy / this.radius);        // 수직각 (0 ~ π)
-        this.theta = Math.atan2(dz, dx);               // 수평각 (-π ~ π)
+        this.theta = Math.atan2(dx, dz);               // 수평각 (Y축 기준 회전)
         
         // 회전값도 UI 표시를 위해 업데이트
         this.rotationX = (this.phi - Math.PI / 2) * (180 / Math.PI);
@@ -405,8 +407,8 @@ class Camera {
         
         // 구 좌표계 파라미터 초기화
         this.radius = 3.0;
-        this.theta = 0;                // 정면
-        this.phi = Math.PI / 2;        // 수평선
+        this.theta = Math.PI;          // 수평각 (Y축 기준 회전, π = Z축 음수 방향)
+        this.phi = Math.PI / 2;        // 수직각 (X축 기준 회전, 0=위쪽, π=아래쪽)
         
         // 카메라 위치 재계산
         this.updateCameraPosition();
@@ -422,7 +424,7 @@ class Camera {
     setViewFront() {
         this.at = vec3(0, 0, 0);
         this.up = vec3(0, 1, 0);
-        this.theta = 0;                // 정면
+        this.theta = Math.PI;          // Z축 음수 방향에서 바라봄
         this.phi = Math.PI / 2;        // 수평선
         this.updateCameraPosition();
         this.updateUI();
@@ -452,7 +454,7 @@ class Camera {
     setViewBack() {
         this.at = vec3(0, 0, 0);
         this.up = vec3(0, 1, 0);
-        this.theta = Math.PI;          // 뒤쪽
+        this.theta = 0;                // Z축 양수 방향에서 바라봄
         this.phi = Math.PI / 2;        // 수평선
         this.updateCameraPosition();
         this.updateUI();
@@ -552,7 +554,7 @@ class Camera {
             rotationY: 0,
             scale: 1.0,
             position: [0, 0, -3],
-            eye: [0, 0, 3],
+            eye: [0, 0, -3],
             at: [0, 0, 0],
             up: [0, 1, 0],
             distance: 3.0

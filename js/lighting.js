@@ -21,7 +21,7 @@ class Lighting {
         this.program = program;
         
         // 조명 파라미터
-        this.position = vec4(2.0, 2.0, 2.0, 1.0); // w=1: point light, w=0: directional
+        this.position = vec4(0.0, 0.0, -2.0, 1.0); // w=1: point light, w=0: directional
         this.type = 'point'; // 'point' or 'directional'
         
         // 조명 강도
@@ -181,7 +181,7 @@ class Lighting {
      * @method reset
      */
     reset() {
-        this.position = vec4(2.0, 2.0, 2.0, 1.0);
+        this.position = vec4(0.0, 0.0, -2.0, 1.0);
         this.type = 'point';
         this.intensity = {
             ambient: 0.2,

@@ -435,12 +435,12 @@ function setupLightingControls() {
         lighting.reset();
         
         // UI 업데이트
-        document.getElementById('light-x').value = 2.0;
-        document.getElementById('light-y').value = 2.0;
-        document.getElementById('light-z').value = 2.0;
-        document.getElementById('light-x-value').textContent = '2.0';
-        document.getElementById('light-y-value').textContent = '2.0';
-        document.getElementById('light-z-value').textContent = '2.0';
+        document.getElementById('light-x').value = 0.0;
+        document.getElementById('light-y').value = 0.0;
+        document.getElementById('light-z').value = -2.0;
+        document.getElementById('light-x-value').textContent = '0.0';
+        document.getElementById('light-y-value').textContent = '0.0';
+        document.getElementById('light-z-value').textContent = '-2.0';
         
         document.getElementById('ambient-intensity').value = 0.2;
         document.getElementById('diffuse-intensity').value = 0.8;
