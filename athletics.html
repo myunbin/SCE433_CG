@@ -11,10 +11,12 @@
     attribute vec4 vPosition;
     attribute vec4 vColor;
     attribute vec3 vNormal;
+    attribute vec2 vTexCoord;
     
     varying vec4 fColor;
     varying vec3 fWorldPosition;
     varying vec3 fWorldNormal;
+    varying vec2 fTexCoord;
     
     uniform mat4 uModelMatrix;
     uniform mat4 uViewMatrix;
@@ -37,6 +39,9 @@
         
         // 색상 전달
         fColor = vColor;
+        
+        // Texture coordinate 전달
+        fTexCoord = vTexCoord;
     }
     </script>
     
@@ -46,6 +51,7 @@
     varying vec4 fColor;
     varying vec3 fWorldPosition;
     varying vec3 fWorldNormal;
+    varying vec2 fTexCoord;
     
     // 조명 관련 uniform 변수들
     uniform vec4 uLightPosition;
@@ -61,6 +67,9 @@
     uniform float uAttenuationA;
     uniform float uAttenuationB;
     uniform float uAttenuationC;
+    
+    // Texture sampler
+    uniform sampler2D texture;
     
     void main() {
         vec3 N = normalize(fWorldNormal);
@@ -99,9 +108,12 @@
         }
         vec4 specular = Ks * uSpecularProduct;
         
-        // 최종 색상 = 재질 색상과 조명의 조합
+        // Texture color 샘플링
+        vec4 textureColor = texture2D(texture, fTexCoord);
+        
+        // 최종 색상 = 재질 색상과 조명의 조합에 텍스처 적용
         vec4 lightColor = ambient + attenuation * (diffuse + specular);
-        gl_FragColor = fColor * lightColor;
+        gl_FragColor = fColor * lightColor * textureColor;
         gl_FragColor.a = 1.0;
     }
     </script>

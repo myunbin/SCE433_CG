@@ -560,6 +560,25 @@ class HumanModel {
             vec4(w, -h, -d, 1.0)              // 11: 허리 오른쪽
         ];
         
+        // Texture coordinates for each vertex
+        const texCoords = [
+            // 앞면 vertices (0-5) - Y 좌표를 뒤집음 (1.0 - originalY)
+            vec2(0.25, 0.0),   // 0: 목 왼쪽 (원래 1.0 -> 0.0)
+            vec2(0.75, 0.0),   // 1: 목 오른쪽 (원래 1.0 -> 0.0)
+            vec2(0.0, 0.3),    // 2: 어깨 왼쪽 (원래 0.7 -> 0.3)
+            vec2(1.0, 0.3),    // 3: 어깨 오른쪽 (원래 0.7 -> 0.3)
+            vec2(0.0, 1.0),    // 4: 허리 왼쪽 (원래 0.0 -> 1.0)
+            vec2(1.0, 1.0),    // 5: 허리 오른쪽 (원래 0.0 -> 1.0)
+            
+            // 뒷면 vertices (6-11) - Y 좌표를 뒤집음
+            vec2(0.25, 0.0),   // 6: 목 왼쪽 (원래 1.0 -> 0.0)
+            vec2(0.75, 0.0),   // 7: 목 오른쪽 (원래 1.0 -> 0.0)
+            vec2(0.0, 0.3),    // 8: 어깨 왼쪽 (원래 0.7 -> 0.3)
+            vec2(1.0, 0.3),    // 9: 어깨 오른쪽 (원래 0.7 -> 0.3)
+            vec2(0.0, 1.0),    // 10: 허리 왼쪽 (원래 0.0 -> 1.0)
+            vec2(1.0, 1.0)     // 11: 허리 오른쪽 (원래 0.0 -> 1.0)
+        ];
+        
         const indices = [
             // 앞면 (Z+ 방향을 향한 법선, 시계방향으로 변경하여 법선 반전)
             0, 2, 1, 1, 2, 3,
@@ -584,7 +603,7 @@ class HumanModel {
             4, 10, 5, 5, 10, 11
         ];
         
-        return { vertices, indices };
+        return { vertices, indices, texCoords };
     }
     
     /**
@@ -645,10 +664,11 @@ class HumanModel {
      * @param {vec4} color - 색상
      */
     drawGeometry(geometry, color) {
-        const { vertices, indices } = geometry;
+        const { vertices, indices, texCoords } = geometry;
         const positions = [];
         const colors = [];
         const normals = [];
+        const textureCoords = [];
         
         // 삼각형별로 법선 계산
         for (let i = 0; i < indices.length; i += 3) {
@@ -673,9 +693,18 @@ class HumanModel {
             
             // 세 정점에 동일한 법선 할당
             for (let j = 0; j < 3; j++) {
-                positions.push(vertices[indices[i + j]]);
+                const vertexIndex = indices[i + j];
+                positions.push(vertices[vertexIndex]);
                 colors.push(color);
                 normals.push(normal);
+                
+                // Texture coordinates 추가 (있는 경우)
+                if (texCoords && texCoords[vertexIndex]) {
+                    textureCoords.push(texCoords[vertexIndex]);
+                } else {
+                    // 기본 texture coordinate
+                    textureCoords.push(vec2(0.0, 0.0));
+                }
             }
         }
         
@@ -734,13 +763,6 @@ class HumanModel {
                     normalMatrix[i][j] = inv[j][i];
                 }
             }
-        } else {
-            // 역행렬이 존재하지 않으면 단위행렬 사용
-            for (let i = 0; i < 3; i++) {
-                for (let j = 0; j < 3; j++) {
-                    normalMatrix[i][j] = (i === j) ? 1.0 : 0.0;
-                }
-            }
         }
         
         const uNormalMatrix = this.gl.getUniformLocation(this.program, "uNormalMatrix");
@@ -748,14 +770,9 @@ class HumanModel {
             this.gl.uniformMatrix3fv(uNormalMatrix, false, flatten(normalMatrix));
         }
         
-        // 카메라 위치 전송 (월드 공간)
-        const uCameraPosition = this.gl.getUniformLocation(this.program, "uCameraPosition");
-        if (uCameraPosition && window.camera) {
-            this.gl.uniform3fv(uCameraPosition, flatten(window.camera.eye));
-        }
-        
-        // 위치 데이터 업로드
-        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.positionBuffer);
+        // 버퍼 생성 및 데이터 전송
+        const positionBuffer = this.gl.createBuffer();
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, positionBuffer);
         this.gl.bufferData(this.gl.ARRAY_BUFFER, flatten(positions), this.gl.STATIC_DRAW);
         
         const vPosition = this.gl.getAttribLocation(this.program, "vPosition");
@@ -764,8 +781,9 @@ class HumanModel {
             this.gl.enableVertexAttribArray(vPosition);
         }
         
-        // 색상 데이터 업로드
-        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.colorBuffer);
+        // 색상 버퍼
+        const colorBuffer = this.gl.createBuffer();
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, colorBuffer);
         this.gl.bufferData(this.gl.ARRAY_BUFFER, flatten(colors), this.gl.STATIC_DRAW);
         
         const vColor = this.gl.getAttribLocation(this.program, "vColor");
@@ -774,8 +792,9 @@ class HumanModel {
             this.gl.enableVertexAttribArray(vColor);
         }
         
-        // 법선 데이터 업로드
-        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.normalBuffer);
+        // 법선 버퍼
+        const normalBuffer = this.gl.createBuffer();
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, normalBuffer);
         this.gl.bufferData(this.gl.ARRAY_BUFFER, flatten(normals), this.gl.STATIC_DRAW);
         
         const vNormal = this.gl.getAttribLocation(this.program, "vNormal");
@@ -784,8 +803,25 @@ class HumanModel {
             this.gl.enableVertexAttribArray(vNormal);
         }
         
+        // Texture coordinate 버퍼
+        const texCoordBuffer = this.gl.createBuffer();
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, texCoordBuffer);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, flatten(textureCoords), this.gl.STATIC_DRAW);
+        
+        const vTexCoord = this.gl.getAttribLocation(this.program, "vTexCoord");
+        if (vTexCoord >= 0) {
+            this.gl.vertexAttribPointer(vTexCoord, 2, this.gl.FLOAT, false, 0, 0);
+            this.gl.enableVertexAttribArray(vTexCoord);
+        }
+        
         // 그리기
         this.gl.drawArrays(this.gl.TRIANGLES, 0, positions.length);
+        
+        // 버퍼 정리
+        this.gl.deleteBuffer(positionBuffer);
+        this.gl.deleteBuffer(colorBuffer);
+        this.gl.deleteBuffer(normalBuffer);
+        this.gl.deleteBuffer(texCoordBuffer);
     }
     
     /**
