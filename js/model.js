@@ -169,6 +169,7 @@ class HumanModel {
         // 버퍼 초기화
         this.positionBuffer = gl.createBuffer();
         this.colorBuffer = gl.createBuffer();
+        this.normalBuffer = gl.createBuffer();
         
         // 노드 트리 루트
         this.rootNode = null;
@@ -190,7 +191,7 @@ class HumanModel {
             () => this.createVest(BODY_PARTS.TORSO.width, BODY_PARTS.TORSO.height, BODY_PARTS.TORSO.depth),
             BODY_COLOR,
             vec3(0, 0, 0),
-            vec3(0, 180, 0) // Y축 180도 회전
+            vec3(0, 0, 0) // 회전 없음
         );
         this.nodeMap.set('TORSO', this.rootNode);
         
@@ -373,16 +374,16 @@ class HumanModel {
         
         // 기하학적 형태가 있다면 렌더링
         if (node.geometryCreator) {
-            // 변환 행렬을 modelViewMatrix에 설정
-            const savedModelView = modelViewMatrix;
-            modelViewMatrix = currentTransform;
+            // 변환 행렬을 modelMatrix에 설정
+            const savedModel = modelMatrix;
+            modelMatrix = currentTransform;
             
             // 기하학적 형태 생성 및 그리기
             const geometry = node.geometryCreator();
             this.drawGeometry(geometry, node.color);
             
-            // modelViewMatrix 복원
-            modelViewMatrix = savedModelView;
+            // modelMatrix 복원
+            modelMatrix = savedModel;
         }
         
         // 자식 노드들을 DFS로 렌더링
@@ -422,7 +423,7 @@ class HumanModel {
      */
     render() {
         // DFS를 통한 계층적 렌더링
-        this.renderDFS(this.rootNode, modelViewMatrix);
+        this.renderDFS(this.rootNode, modelMatrix);
     }
     
     /**
@@ -569,28 +570,28 @@ class HumanModel {
             0, 1, 2, 1, 3, 2,
             2, 3, 4, 3, 5, 4,
             
-            // 뒷면 (Z- 방향을 향한 법선, 시계방향) 
-            6, 8, 7, 7, 8, 9,
-            8, 10, 9, 9, 10, 11,
+            // 뒷면 (Z- 방향을 향한 법선, 반시계방향 - 뒤에서 바라볼 때) 
+            7, 6, 9, 6, 8, 9,
+            9, 8, 11, 8, 10, 11,
             
-            // 왼쪽 측면 (X- 방향을 향한 법선)
+            // 왼쪽 측면 (X- 방향을 향한 법선, 반시계방향 - 왼쪽에서 볼 때)
             0, 2, 6, 2, 8, 6,
             2, 4, 8, 4, 10, 8,
             
-            // 오른쪽 측면 (X+ 방향을 향한 법선)
-            1, 7, 3, 7, 9, 3,
-            3, 9, 5, 9, 11, 5,
+            // 오른쪽 측면 (X+ 방향을 향한 법선, 반시계방향 - 오른쪽에서 볼 때)
+            7, 3, 1, 7, 9, 3,
+            9, 5, 3, 9, 11, 5,
             
             // 윗면 (Y+ 방향을 향한 법선, 반시계방향 - 위에서 내려다볼 때)
             // 목 부분 4각형: 0-1-7-6 (반시계방향)
-            0, 6, 1, 1, 6, 7,
+            0, 1, 6, 1, 7, 6,
             
-            // 아랫면 (Y- 방향을 향한 법선, 시계방향 - 아래에서 올려다볼 때)  
-            // 허리 부분 4각형: 4-5-11-10 (시계방향)
+            // 아랫면 (Y- 방향을 향한 법선, 반시계방향 - 아래에서 올려다볼 때)  
+            // 허리 부분 4각형: 4-5-11-10 (반시계방향)
             4, 5, 10, 5, 11, 10
         ];
         
-        return { vertices, indices };
+        return { vertices, indices, isVest: true };
     }
     
     /**
@@ -645,7 +646,7 @@ class HumanModel {
     }
     
     /**
-     * 기하학적 형태 그리기 (간소화된 버전)
+     * 기하학적 형태 그리기 (조명을 위한 법선 포함)
      * @method drawGeometry
      * @param {Object} geometry - 그릴 기하학적 형태
      * @param {vec4} color - 색상
@@ -654,16 +655,114 @@ class HumanModel {
         const { vertices, indices } = geometry;
         const positions = [];
         const colors = [];
+        const normals = [];
         
-        for (let i = 0; i < indices.length; i++) {
-            positions.push(vertices[indices[i]]);
+        // 삼각형별로 법선 계산
+        for (let i = 0; i < indices.length; i += 3) {
+            const v0 = vertices[indices[i]];
+            const v1 = vertices[indices[i + 1]];
+            const v2 = vertices[indices[i + 2]];
+            
+            // 두 변 벡터 계산
+            const edge1 = vec3(
+                v1[0] - v0[0],
+                v1[1] - v0[1],
+                v1[2] - v0[2]
+            );
+            const edge2 = vec3(
+                v2[0] - v0[0],
+                v2[1] - v0[1],
+                v2[2] - v0[2]
+            );
+            
+            // 외적으로 법선 계산
+            const normal = normalize(cross(edge1, edge2));
+            
+            // 관절인 경우 법선 반전
+            const finalNormal = (geometry.isJoint || geometry.isVest) ? 
+                vec3(-normal[0], -normal[1], -normal[2]) : normal;
+            
+            // 세 정점에 동일한 법선 할당
+            for (let j = 0; j < 3; j++) {
+                positions.push(vertices[indices[i + j]]);
             colors.push(color);
+                normals.push(finalNormal);
+            }
         }
         
-        // 현재 modelViewMatrix를 셰이더에 전송
-        const uModelViewMatrix = this.gl.getUniformLocation(this.program, "uModelViewMatrix");
-        if (uModelViewMatrix) {
-            this.gl.uniformMatrix4fv(uModelViewMatrix, false, flatten(modelViewMatrix));
+        // 현재 모델 행렬을 셰이더에 전송
+        const uModelMatrix = this.gl.getUniformLocation(this.program, "uModelMatrix");
+        if (uModelMatrix) {
+            this.gl.uniformMatrix4fv(uModelMatrix, false, flatten(modelMatrix));
+        }
+        
+        // 뷰 행렬 전송
+        const uViewMatrix = this.gl.getUniformLocation(this.program, "uViewMatrix");
+        if (uViewMatrix && window.viewMatrix) {
+            this.gl.uniformMatrix4fv(uViewMatrix, false, flatten(window.viewMatrix));
+        }
+        
+        // 투영 행렬 전송
+        const uProjectionMatrix = this.gl.getUniformLocation(this.program, "uProjectionMatrix");
+        if (uProjectionMatrix && window.projectionMatrix) {
+            this.gl.uniformMatrix4fv(uProjectionMatrix, false, flatten(window.projectionMatrix));
+        }
+        
+        // Normal matrix 계산 및 전송 (모델 행렬의 3x3 부분의 역전치행렬)
+        const normalMatrix = mat3();
+        
+        // 모델 행렬의 3x3 부분 추출
+        const modelMatrix3x3 = mat3();
+        for (let i = 0; i < 3; i++) {
+            for (let j = 0; j < 3; j++) {
+                modelMatrix3x3[i][j] = modelMatrix[i][j];
+            }
+        }
+        
+        // 역행렬 계산
+        const det = modelMatrix3x3[0][0] * (modelMatrix3x3[1][1] * modelMatrix3x3[2][2] - modelMatrix3x3[1][2] * modelMatrix3x3[2][1]) -
+                   modelMatrix3x3[0][1] * (modelMatrix3x3[1][0] * modelMatrix3x3[2][2] - modelMatrix3x3[1][2] * modelMatrix3x3[2][0]) +
+                   modelMatrix3x3[0][2] * (modelMatrix3x3[1][0] * modelMatrix3x3[2][1] - modelMatrix3x3[1][1] * modelMatrix3x3[2][0]);
+        
+        if (Math.abs(det) > 0.00001) {
+            const invDet = 1.0 / det;
+            
+            // 역행렬 계산
+            const inv = mat3();
+            inv[0][0] = invDet * (modelMatrix3x3[1][1] * modelMatrix3x3[2][2] - modelMatrix3x3[1][2] * modelMatrix3x3[2][1]);
+            inv[0][1] = invDet * (modelMatrix3x3[0][2] * modelMatrix3x3[2][1] - modelMatrix3x3[0][1] * modelMatrix3x3[2][2]);
+            inv[0][2] = invDet * (modelMatrix3x3[0][1] * modelMatrix3x3[1][2] - modelMatrix3x3[0][2] * modelMatrix3x3[1][1]);
+            inv[1][0] = invDet * (modelMatrix3x3[1][2] * modelMatrix3x3[2][0] - modelMatrix3x3[1][0] * modelMatrix3x3[2][2]);
+            inv[1][1] = invDet * (modelMatrix3x3[0][0] * modelMatrix3x3[2][2] - modelMatrix3x3[0][2] * modelMatrix3x3[2][0]);
+            inv[1][2] = invDet * (modelMatrix3x3[0][2] * modelMatrix3x3[1][0] - modelMatrix3x3[0][0] * modelMatrix3x3[1][2]);
+            inv[2][0] = invDet * (modelMatrix3x3[1][0] * modelMatrix3x3[2][1] - modelMatrix3x3[1][1] * modelMatrix3x3[2][0]);
+            inv[2][1] = invDet * (modelMatrix3x3[0][1] * modelMatrix3x3[2][0] - modelMatrix3x3[0][0] * modelMatrix3x3[2][1]);
+            inv[2][2] = invDet * (modelMatrix3x3[0][0] * modelMatrix3x3[1][1] - modelMatrix3x3[0][1] * modelMatrix3x3[1][0]);
+            
+            // 전치행렬 계산 (역행렬의 전치)
+            for (let i = 0; i < 3; i++) {
+                for (let j = 0; j < 3; j++) {
+                    normalMatrix[i][j] = inv[j][i];
+                }
+            }
+        } else {
+            // 역행렬이 존재하지 않으면 단위행렬 사용
+            for (let i = 0; i < 3; i++) {
+                for (let j = 0; j < 3; j++) {
+                    normalMatrix[i][j] = (i === j) ? 1.0 : 0.0;
+                }
+            }
+        }
+        
+        const uNormalMatrix = this.gl.getUniformLocation(this.program, "uNormalMatrix");
+        if (uNormalMatrix) {
+            this.gl.uniformMatrix3fv(uNormalMatrix, false, flatten(normalMatrix));
+        }
+        
+        // 카메라 위치 전송 (월드 공간)
+        const uCameraPosition = this.gl.getUniformLocation(this.program, "uCameraPosition");
+        if (uCameraPosition && window.camera) {
+            this.gl.uniform3fv(uCameraPosition, flatten(window.camera.eye));
         }
         
         // 위치 데이터 업로드
@@ -684,6 +783,16 @@ class HumanModel {
         if (vColor >= 0) {
             this.gl.vertexAttribPointer(vColor, 4, this.gl.FLOAT, false, 0, 0);
             this.gl.enableVertexAttribArray(vColor);
+        }
+        
+        // 법선 데이터 업로드
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.normalBuffer);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, flatten(normals), this.gl.STATIC_DRAW);
+        
+        const vNormal = this.gl.getAttribLocation(this.program, "vNormal");
+        if (vNormal >= 0) {
+            this.gl.vertexAttribPointer(vNormal, 3, this.gl.FLOAT, false, 0, 0);
+            this.gl.enableVertexAttribArray(vNormal);
         }
         
         // 그리기
@@ -894,7 +1003,7 @@ class HumanModel {
             indices.push(bottomCenterIndex, current, next); // 중심점에서 시계방향
         }
         
-        return { vertices, indices };
+        return { vertices, indices, isJoint: true };
     }
     
     /**
@@ -965,7 +1074,7 @@ class HumanModel {
             2, 6, 3, 6, 7, 3,
             
             // 왼쪽 측면 (X- 방향을 향한 법선)
-            0, 3, 4, 3, 7, 4,
+            0, 4, 2, 4, 6, 2,
             
             // 오른쪽 측면 (X+ 방향을 향한 법선)
             1, 5, 2, 5, 6, 2

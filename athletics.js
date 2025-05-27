@@ -7,10 +7,10 @@
  */
 
 // WebGL 관련 전역 변수
-let gl, program, modelViewMatrix, projectionMatrix;
+let gl, program, modelMatrix, viewMatrix, projectionMatrix;
 
 // 모듈 인스턴스들
-let humanModel, camera, poseController, poseStorage, animation;
+let humanModel, camera, lighting, poseController, poseStorage, animation;
 
 /**
  * 배경색 상수 (회색)
@@ -51,6 +51,8 @@ window.onload = function init() {
         
         projectionMatrix = window.projectionMatrix; // 카메라에서 설정된 투영 행렬 참조
         
+        lighting = new Lighting(gl, program);
+        
         humanModel = new HumanModel(gl, program);
         
         poseController = new PoseController(humanModel);
@@ -90,6 +92,8 @@ window.onload = function init() {
         }, 100);
     });
 };
+
+
 
 /**
  * 이벤트 리스너 설정
@@ -201,6 +205,9 @@ function setupEventListeners() {
             }
         });
     });
+    
+    // 조명 관련 이벤트 리스너
+    setupLightingControls();
 }
 
 /**
@@ -339,18 +346,12 @@ function render() {
     try {
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
         
-        // modelViewMatrix를 단위 행렬로 초기화
-        modelViewMatrix = mat4();
+        // 모델 행렬을 단위 행렬로 초기화
+        modelMatrix = mat4();
         
-        // 카메라 뷰 행렬 적용
-        modelViewMatrix = mult(modelViewMatrix, camera.getViewMatrix());
-        
-        // 투영 행렬만 업데이트 (모델뷰 행렬은 각 객체에서 개별 설정)
-        const uProjectionMatrix = gl.getUniformLocation(program, "uProjectionMatrix");
-        
-        if (uProjectionMatrix && projectionMatrix) {
-            gl.uniformMatrix4fv(uProjectionMatrix, false, flatten(projectionMatrix));
-        }
+        // 카메라 뷰 행렬을 전역 변수로 설정
+        window.viewMatrix = camera.getViewMatrix();
+        window.camera = camera; // 카메라 객체도 전역으로 설정
         
         // DFS 기반 렌더링 시작 확인
         if (humanModel && humanModel.rootNode) {
@@ -360,4 +361,100 @@ function render() {
     } catch (error) {
         // 렌더링 오류 발생시 무시
     }
+}
+
+/**
+ * 조명 컨트롤 설정
+ * @function setupLightingControls
+ * @description 조명 관련 UI 이벤트 리스너 설정
+ */
+function setupLightingControls() {
+    // 조명 타입 버튼
+    document.getElementById('point-light')?.addEventListener('click', function() {
+        lighting.setType('point');
+        document.getElementById('point-light').classList.add('active');
+        document.getElementById('directional-light').classList.remove('active');
+        requestAnimationFrame(render);
+    });
+    
+    document.getElementById('directional-light')?.addEventListener('click', function() {
+        lighting.setType('directional');
+        document.getElementById('directional-light').classList.add('active');
+        document.getElementById('point-light').classList.remove('active');
+        requestAnimationFrame(render);
+    });
+    
+    // 조명 위치 슬라이더
+    const lightPositionControls = [
+        { id: 'light-x', axis: 0, valueId: 'light-x-value' },
+        { id: 'light-y', axis: 1, valueId: 'light-y-value' },
+        { id: 'light-z', axis: 2, valueId: 'light-z-value' }
+    ];
+    
+    lightPositionControls.forEach(({ id, axis, valueId }) => {
+        const element = document.getElementById(id);
+        if (element) {
+            element.addEventListener('input', function() {
+                const value = parseFloat(this.value);
+                const pos = lighting.position;
+                pos[axis] = value;
+                lighting.setPosition(pos[0], pos[1], pos[2]);
+                document.getElementById(valueId).textContent = value.toFixed(1);
+                requestAnimationFrame(render);
+            });
+        }
+    });
+    
+    // 조명 강도 슬라이더
+    document.getElementById('ambient-intensity')?.addEventListener('input', function() {
+        lighting.setIntensity('ambient', parseFloat(this.value));
+        document.getElementById('ambient-value').textContent = this.value;
+        requestAnimationFrame(render);
+    });
+    
+    document.getElementById('diffuse-intensity')?.addEventListener('input', function() {
+        lighting.setIntensity('diffuse', parseFloat(this.value));
+        document.getElementById('diffuse-value').textContent = this.value;
+        requestAnimationFrame(render);
+    });
+    
+    document.getElementById('specular-intensity')?.addEventListener('input', function() {
+        lighting.setIntensity('specular', parseFloat(this.value));
+        document.getElementById('specular-value').textContent = this.value;
+        requestAnimationFrame(render);
+    });
+    
+    document.getElementById('shininess')?.addEventListener('input', function() {
+        lighting.setShininess(parseFloat(this.value));
+        document.getElementById('shininess-value').textContent = this.value;
+        requestAnimationFrame(render);
+    });
+    
+    // 조명 초기화 버튼
+    document.getElementById('reset-lighting')?.addEventListener('click', function() {
+        lighting.reset();
+        
+        // UI 업데이트
+        document.getElementById('light-x').value = 2.0;
+        document.getElementById('light-y').value = 2.0;
+        document.getElementById('light-z').value = 2.0;
+        document.getElementById('light-x-value').textContent = '2.0';
+        document.getElementById('light-y-value').textContent = '2.0';
+        document.getElementById('light-z-value').textContent = '2.0';
+        
+        document.getElementById('ambient-intensity').value = 0.2;
+        document.getElementById('diffuse-intensity').value = 0.8;
+        document.getElementById('specular-intensity').value = 1.0;
+        document.getElementById('shininess').value = 20;
+        
+        document.getElementById('ambient-value').textContent = '0.2';
+        document.getElementById('diffuse-value').textContent = '0.8';
+        document.getElementById('specular-value').textContent = '1.0';
+        document.getElementById('shininess-value').textContent = '20';
+        
+        document.getElementById('point-light').classList.add('active');
+        document.getElementById('directional-light').classList.remove('active');
+        
+        requestAnimationFrame(render);
+    });
 } 

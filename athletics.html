@@ -10,14 +10,32 @@
     <script id="vertex-shader" type="x-shader/x-vertex">
     attribute vec4 vPosition;
     attribute vec4 vColor;
-    
-    uniform mat4 uModelViewMatrix;
-    uniform mat4 uProjectionMatrix;
+    attribute vec3 vNormal;
     
     varying vec4 fColor;
+    varying vec3 fWorldPosition;
+    varying vec3 fWorldNormal;
+    
+    uniform mat4 uModelMatrix;
+    uniform mat4 uViewMatrix;
+    uniform mat4 uProjectionMatrix;
+    uniform mat3 uNormalMatrix;
     
     void main() {
-        gl_Position = uProjectionMatrix * uModelViewMatrix * vPosition;
+        // 월드 좌표 계산
+        vec4 worldPosition = uModelMatrix * vPosition;
+        fWorldPosition = worldPosition.xyz;
+        
+        // 뷰 좌표 계산
+        vec4 viewPosition = uViewMatrix * worldPosition;
+        
+        // 클립 좌표 계산
+        gl_Position = uProjectionMatrix * viewPosition;
+        
+        // 월드 공간에서의 법선 변환
+        fWorldNormal = normalize(uNormalMatrix * vNormal);
+        
+        // 색상 전달
         fColor = vColor;
     }
     </script>
@@ -26,9 +44,65 @@
     precision mediump float;
     
     varying vec4 fColor;
+    varying vec3 fWorldPosition;
+    varying vec3 fWorldNormal;
+    
+    // 조명 관련 uniform 변수들
+    uniform vec4 uLightPosition;
+    uniform vec4 uAmbientProduct;
+    uniform vec4 uDiffuseProduct;
+    uniform vec4 uSpecularProduct;
+    uniform float uShininess;
+    
+    // 카메라 위치 (월드 공간)
+    uniform vec3 uCameraPosition;
+    
+    // 감쇠 계수
+    uniform float uAttenuationA;
+    uniform float uAttenuationB;
+    uniform float uAttenuationC;
     
     void main() {
-        gl_FragColor = fColor;
+        vec3 N = normalize(fWorldNormal);
+        vec3 L;
+        float attenuation = 1.0;
+        
+        // Point light vs Directional light
+        if (uLightPosition.w == 1.0) {
+            // Point light
+            vec3 lightVec = uLightPosition.xyz - fWorldPosition;
+            L = normalize(lightVec);
+            float distance = length(lightVec);
+            attenuation = 1.0 / (uAttenuationA + uAttenuationB * distance + uAttenuationC * distance * distance);
+        } else {
+            // Directional light
+            L = normalize(uLightPosition.xyz);
+        }
+        
+        // View vector (월드 공간에서 카메라를 향하는 벡터)
+        vec3 V = normalize(uCameraPosition - fWorldPosition);
+        
+        // Half vector (Blinn-Phong)
+        vec3 H = normalize(L + V);
+        
+        // Ambient
+        vec4 ambient = uAmbientProduct;
+        
+        // Diffuse
+        float Kd = max(dot(L, N), 0.0);
+        vec4 diffuse = Kd * uDiffuseProduct;
+        
+        // Specular (Blinn-Phong)
+        float Ks = 0.0;
+        if (Kd > 0.0) {
+            Ks = pow(max(dot(N, H), 0.0), uShininess);
+        }
+        vec4 specular = Ks * uSpecularProduct;
+        
+        // 최종 색상 = 재질 색상과 조명의 조합
+        vec4 lightColor = ambient + attenuation * (diffuse + specular);
+        gl_FragColor = fColor * lightColor;
+        gl_FragColor.a = 1.0;
     }
     </script>
     
@@ -39,6 +113,7 @@
     
     <!-- 모듈화된 JavaScript 파일들 -->
     <script type="text/javascript" src="js/camera.js"></script>
+    <script type="text/javascript" src="js/lighting.js"></script>
     <script type="text/javascript" src="js/model.js"></script>
     <script type="text/javascript" src="js/poseController.js"></script>
     <script type="text/javascript" src="js/poseStorage.js"></script>
@@ -324,6 +399,90 @@
                     <div class="controls">
                         <button id="reset-camera">카메라 초기화</button>
                         <button id="reset-button">전체 초기화</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 조명 설정 -->
+            <div class="accordion-section">
+                <div class="accordion-header" data-target="lighting-control">
+                    <span class="accordion-title">💡 조명 설정</span>
+                    <span class="accordion-arrow">▼</span>
+                </div>
+                <div class="accordion-content" id="lighting-control">
+                    <!-- 조명 타입 -->
+                    <div class="subsection-title">조명 타입</div>
+                    <div class="controls">
+                        <button id="point-light" class="active">점 광원</button>
+                        <button id="directional-light">방향성 광원</button>
+                    </div>
+                    
+                    <!-- 조명 위치/방향 -->
+                    <div class="subsection-title">조명 위치/방향</div>
+                    <div class="slider-controls">
+                        <div class="slider-container">
+                            <div class="slider-label">
+                                <span>Light X</span>
+                                <span id="light-x-value">2.0</span>
+                            </div>
+                            <input type="range" id="light-x" min="-5" max="5" value="2" step="0.1">
+                        </div>
+                        
+                        <div class="slider-container">
+                            <div class="slider-label">
+                                <span>Light Y</span>
+                                <span id="light-y-value">2.0</span>
+                            </div>
+                            <input type="range" id="light-y" min="-5" max="5" value="2" step="0.1">
+                        </div>
+                        
+                        <div class="slider-container">
+                            <div class="slider-label">
+                                <span>Light Z</span>
+                                <span id="light-z-value">2.0</span>
+                            </div>
+                            <input type="range" id="light-z" min="-5" max="5" value="2" step="0.1">
+                        </div>
+                    </div>
+                    
+                    <!-- 조명 강도 -->
+                    <div class="subsection-title">조명 강도</div>
+                    <div class="slider-controls">
+                        <div class="slider-container">
+                            <div class="slider-label">
+                                <span>Ambient</span>
+                                <span id="ambient-value">0.2</span>
+                            </div>
+                            <input type="range" id="ambient-intensity" min="0" max="1" value="0.2" step="0.01">
+                        </div>
+                        
+                        <div class="slider-container">
+                            <div class="slider-label">
+                                <span>Diffuse</span>
+                                <span id="diffuse-value">0.8</span>
+                            </div>
+                            <input type="range" id="diffuse-intensity" min="0" max="1" value="0.8" step="0.01">
+                        </div>
+                        
+                        <div class="slider-container">
+                            <div class="slider-label">
+                                <span>Specular</span>
+                                <span id="specular-value">1.0</span>
+                            </div>
+                            <input type="range" id="specular-intensity" min="0" max="1" value="1.0" step="0.01">
+                        </div>
+                        
+                        <div class="slider-container">
+                            <div class="slider-label">
+                                <span>Shininess</span>
+                                <span id="shininess-value">20</span>
+                            </div>
+                            <input type="range" id="shininess" min="1" max="100" value="20" step="1">
+                        </div>
+                    </div>
+                    
+                    <div class="controls">
+                        <button id="reset-lighting">조명 초기화</button>
                     </div>
                 </div>
             </div>
