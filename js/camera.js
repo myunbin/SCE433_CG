@@ -93,20 +93,35 @@ class Camera {
             const deltaX = x - this.lastMouseX;
             const deltaY = y - this.lastMouseY;
             
-            // 감도 조절 (마우스 이동량을 각도로 변환)
-            const sensitivity = 0.01;
-            
-            // 수평 회전 (Y축 기준) - 마우스 X 이동
-            this.theta += deltaX * sensitivity;
-            
-            // 수직 회전 (X축 기준) - 마우스 Y 이동 (반전)
-            this.phi -= deltaY * sensitivity;
-            
-            // 수직각을 0.1 ~ π-0.1 범위로 제한 (완전히 위/아래로 가지 않도록)
-            this.phi = Math.max(0.1, Math.min(Math.PI - 0.1, this.phi));
-            
-            // 구 좌표계를 데카르트 좌표계로 변환하여 카메라 위치 계산
-            this.updateCameraPosition();
+            // Ctrl + 드래그: Z축 회전 (카메라 롤링)
+            if (e.ctrlKey) {
+                // Z축 회전만 적용 (마우스 X 이동만 사용)
+                this.rotationZ += deltaX * 0.5;
+                
+                // Z축 회전값 정규화 (0-360도 범위)
+                this.rotationZ = this.rotationZ % 360;
+                if (this.rotationZ < 0) this.rotationZ += 360;
+                
+                this.canvas.style.cursor = 'crosshair';
+            } else {
+                // 일반 드래그: 구 좌표계 방식
+                // 감도 조절 (마우스 이동량을 각도로 변환)
+                const sensitivity = 0.01;
+                
+                // 수평 회전 (Y축 기준) - 마우스 X 이동
+                this.theta += deltaX * sensitivity;
+                
+                // 수직 회전 (X축 기준) - 마우스 Y 이동 (반전)
+                this.phi -= deltaY * sensitivity;
+                
+                // 수직각을 0.1 ~ π-0.1 범위로 제한 (완전히 위/아래로 가지 않도록)
+                this.phi = Math.max(0.1, Math.min(Math.PI - 0.1, this.phi));
+                
+                // 구 좌표계를 데카르트 좌표계로 변환하여 카메라 위치 계산
+                this.updateCameraPosition();
+                
+                this.canvas.style.cursor = 'move';
+            }
             
             // 현재 마우스 위치 저장
             this.lastMouseX = x;
@@ -249,23 +264,17 @@ class Camera {
      * @returns {mat4} 뷰 행렬
      */
     getViewMatrix() {
-        // Assignment3와 동일한 방식: 직접 설정된 eye, at, up으로 lookAt 생성
-        // eye는 마우스 이벤트에서 이미 설정됨
+        // 기본 lookAt 뷰 행렬 생성
+        let viewMatrix = lookAt(this.eye, this.at, this.up);
         
-        // UI 슬라이더 값이 변경되었을 때는 그 값을 사용
-        // Z축 회전이 있다면 기본 업 벡터에 회전 적용 (슬라이더 값이 기본값일 때만)
-        const isDefaultUp = (this.up[0] === 0 && this.up[1] === 1 && this.up[2] === 0);
-        
-        if (this.rotationZ !== 0 && isDefaultUp) {
-            const radZ = radians(this.rotationZ);
-            const cosZ = Math.cos(radZ);
-            const sinZ = Math.sin(radZ);
-            const upVector = vec3(-sinZ, cosZ, 0);
-            return lookAt(this.eye, this.at, upVector);
-        } else {
-            // UI 슬라이더에서 설정된 up 벡터 값을 직접 사용
-            return lookAt(this.eye, this.at, this.up);
+        // Z축 회전이 있다면 뷰 행렬에 회전 적용
+        if (this.rotationZ !== 0) {
+            // Z축 회전 행렬을 뷰 행렬에 곱하기
+            const rotMatrix = rotateZ(this.rotationZ);
+            viewMatrix = mult(rotMatrix, viewMatrix);
         }
+        
+        return viewMatrix;
     }
     
     /**
