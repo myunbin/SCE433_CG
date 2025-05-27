@@ -57,10 +57,11 @@
             </div>
             <div style="margin-top: 10px; font-size: 12px; color: #666; text-align: center;">
                 <strong>카메라 조작법:</strong><br>
-                • 마우스 드래그: 카메라 뷰 변경 (Assignment3 방식)<br>
+                • 마우스 드래그: 카메라 뷰 변경 (orbit 방식)<br>
+                • Ctrl + 드래그: Z축 회전 (카메라 롤링)<br>
                 • 마우스 휠: 줌 인/아웃<br>
-                • 키보드 1/2/3: 정면/측면/위쪽 뷰<br>
-                • 오른쪽 패널 슬라이더로 정밀 조정 가능
+                • 키보드 1~6: 정면/후면/왼쪽/오른쪽/위쪽/아래쪽 뷰<br>
+                • 오른쪽 패널 슬라이더로 Eye, At, Up 벡터 정밀 조정 가능
             </div>
         </div>
         
@@ -217,8 +218,11 @@
                     <div class="subsection-title">미리 정의된 뷰</div>
                     <div class="controls">
                         <button id="view-front">정면 뷰</button>
-                        <button id="view-side">측면 뷰</button>
+                        <button id="view-back">후면 뷰</button>
+                        <button id="view-left">왼쪽 뷰</button>
+                        <button id="view-right">오른쪽 뷰</button>
                         <button id="view-top">위쪽 뷰</button>
+                        <button id="view-bottom">아래쪽 뷰</button>
                     </div>
                     
                     <!-- Eye 위치 (카메라 위치) -->

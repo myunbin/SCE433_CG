@@ -181,8 +181,11 @@ function setupEventListeners() {
     // 미리 정의된 뷰 버튼들
     const viewButtons = {
         'view-front': () => camera.setViewFront(),
-        'view-side': () => camera.setViewSide(),
+        'view-back': () => camera.setViewBack(),
+        'view-left': () => camera.setViewLeft(),
+        'view-right': () => camera.setViewRight(),
         'view-top': () => camera.setViewTop(),
+        'view-bottom': () => camera.setViewBottom(),
         'reset-camera': () => {
             camera.reset();
             updateCameraUI();

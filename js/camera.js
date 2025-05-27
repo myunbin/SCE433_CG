@@ -25,7 +25,6 @@ class Camera {
         // 카메라 변환 상태
         this.rotationX = 0;
         this.rotationY = 0;
-        this.rotationZ = 0;
         this.scale = 1.0;
         this.position = vec3(0, 0, -3);
         
@@ -95,12 +94,51 @@ class Camera {
             
             // Ctrl + 드래그: Z축 회전 (카메라 롤링)
             if (e.ctrlKey) {
-                // Z축 회전만 적용 (마우스 X 이동만 사용)
-                this.rotationZ += deltaX * 0.5;
+                // Z축 회전을 위해 up 벡터를 회전시킴
+                const rotationAngle = deltaX * 0.01; // 라디안 단위로 변환
                 
-                // Z축 회전값 정규화 (0-360도 범위)
-                this.rotationZ = this.rotationZ % 360;
-                if (this.rotationZ < 0) this.rotationZ += 360;
+                // 현재 카메라의 전방 벡터 계산 (eye에서 at을 향하는 벡터)
+                const forward = vec3(
+                    this.at[0] - this.eye[0],
+                    this.at[1] - this.eye[1],
+                    this.at[2] - this.eye[2]
+                );
+                
+                // 전방 벡터 정규화
+                const fLength = Math.sqrt(forward[0] * forward[0] + forward[1] * forward[1] + forward[2] * forward[2]);
+                forward[0] /= fLength;
+                forward[1] /= fLength;
+                forward[2] /= fLength;
+                
+                // 로드리게스 회전 공식을 사용하여 up 벡터를 전방 벡터 중심으로 회전
+                const cos_angle = Math.cos(rotationAngle);
+                const sin_angle = Math.sin(rotationAngle);
+                
+                // v_rot = v * cos(θ) + (k × v) * sin(θ) + k * (k · v) * (1 - cos(θ))
+                // 여기서 k는 회전축(forward), v는 회전할 벡터(up)
+                
+                // k · v (내적)
+                const dot = forward[0] * this.up[0] + forward[1] * this.up[1] + forward[2] * this.up[2];
+                
+                // k × v (외적)
+                const cross = vec3(
+                    forward[1] * this.up[2] - forward[2] * this.up[1],
+                    forward[2] * this.up[0] - forward[0] * this.up[2],
+                    forward[0] * this.up[1] - forward[1] * this.up[0]
+                );
+                
+                // 새로운 up 벡터 계산
+                const newUp = vec3(
+                    this.up[0] * cos_angle + cross[0] * sin_angle + forward[0] * dot * (1 - cos_angle),
+                    this.up[1] * cos_angle + cross[1] * sin_angle + forward[1] * dot * (1 - cos_angle),
+                    this.up[2] * cos_angle + cross[2] * sin_angle + forward[2] * dot * (1 - cos_angle)
+                );
+                
+                // up 벡터 정규화
+                const upLength = Math.sqrt(newUp[0] * newUp[0] + newUp[1] * newUp[1] + newUp[2] * newUp[2]);
+                this.up[0] = newUp[0] / upLength;
+                this.up[1] = newUp[1] / upLength;
+                this.up[2] = newUp[2] / upLength;
                 
                 this.canvas.style.cursor = 'crosshair';
             } else {
@@ -167,11 +205,20 @@ class Camera {
                 case '1': // 정면 뷰
                     this.setViewFront();
                     break;
-                case '2': // 측면 뷰
-                    this.setViewSide();
+                case '2': // 후면 뷰
+                    this.setViewBack();
                     break;
-                case '3': // 위쪽 뷰
+                case '3': // 왼쪽 뷰
+                    this.setViewLeft();
+                    break;
+                case '4': // 오른쪽 뷰
+                    this.setViewRight();
+                    break;
+                case '5': // 위쪽 뷰
                     this.setViewTop();
+                    break;
+                case '6': // 아래쪽 뷰
+                    this.setViewBottom();
                     break;
             }
         });
@@ -226,6 +273,47 @@ class Camera {
     }
     
     /**
+     * Eye 벡터 직접 설정
+     * @method setEye
+     * @param {Array} eye - 3D 위치 벡터 [x, y, z]
+     */
+    setEye(eye) {
+        this.eye = vec3(eye[0], eye[1], eye[2]);
+        this.updateSphericalCoordinatesFromEye();
+        this.updateUI();
+        this.triggerRender();
+    }
+    
+    /**
+     * At 벡터 직접 설정
+     * @method setAt
+     * @param {Array} at - 3D 위치 벡터 [x, y, z]
+     */
+    setAt(at) {
+        this.at = vec3(at[0], at[1], at[2]);
+        this.updateSphericalCoordinatesFromEye();
+        this.updateUI();
+        this.triggerRender();
+    }
+    
+    /**
+     * Up 벡터 직접 설정
+     * @method setUp
+     * @param {Array} up - 3D 방향 벡터 [x, y, z]
+     */
+    setUp(up) {
+        // Up 벡터 정규화
+        const length = Math.sqrt(up[0] * up[0] + up[1] * up[1] + up[2] * up[2]);
+        if (length > 0.001) {
+            this.up = vec3(up[0] / length, up[1] / length, up[2] / length);
+        } else {
+            this.up = vec3(0, 1, 0); // 기본값
+        }
+        this.updateUI();
+        this.triggerRender();
+    }
+    
+    /**
      * 렌더링 트리거
      * @method triggerRender
      */
@@ -265,16 +353,7 @@ class Camera {
      */
     getViewMatrix() {
         // 기본 lookAt 뷰 행렬 생성
-        let viewMatrix = lookAt(this.eye, this.at, this.up);
-        
-        // Z축 회전이 있다면 뷰 행렬에 회전 적용
-        if (this.rotationZ !== 0) {
-            // Z축 회전 행렬을 뷰 행렬에 곱하기
-            const rotMatrix = rotateZ(this.rotationZ);
-            viewMatrix = mult(rotMatrix, viewMatrix);
-        }
-        
-        return viewMatrix;
+        return lookAt(this.eye, this.at, this.up);
     }
     
     /**
@@ -293,15 +372,6 @@ class Camera {
      */
     setRotationY(angle) {
         this.rotationY = angle;
-    }
-    
-    /**
-     * Z축 회전각 설정
-     * @method setRotationZ
-     * @param {number} angle - 회전각 (도 단위)
-     */
-    setRotationZ(angle) {
-        this.rotationZ = angle;
     }
     
     /**
@@ -326,7 +396,6 @@ class Camera {
     reset() {
         this.rotationX = 0;
         this.rotationY = 0;
-        this.rotationZ = 0;
         this.scale = 1.0;
         
         // 표준 카메라 파라미터 초기화
@@ -360,19 +429,7 @@ class Camera {
         this.triggerRender();
     }
     
-    /**
-     * 측면 뷰 설정 (구 좌표계 방식)
-     * @method setViewSide
-     */
-    setViewSide() {
-        this.at = vec3(0, 0, 0);
-        this.up = vec3(0, 1, 0);
-        this.theta = Math.PI / 2;      // 오른쪽 측면
-        this.phi = Math.PI / 2;        // 수평선
-        this.updateCameraPosition();
-        this.updateUI();
-        this.triggerRender();
-    }
+
     
     /**
      * 위쪽 뷰 설정 (구 좌표계 방식)
@@ -389,6 +446,62 @@ class Camera {
     }
     
     /**
+     * 후면 뷰 설정 (구 좌표계 방식)
+     * @method setViewBack
+     */
+    setViewBack() {
+        this.at = vec3(0, 0, 0);
+        this.up = vec3(0, 1, 0);
+        this.theta = Math.PI;          // 뒤쪽
+        this.phi = Math.PI / 2;        // 수평선
+        this.updateCameraPosition();
+        this.updateUI();
+        this.triggerRender();
+    }
+    
+    /**
+     * 왼쪽 뷰 설정 (구 좌표계 방식)
+     * @method setViewLeft
+     */
+    setViewLeft() {
+        this.at = vec3(0, 0, 0);
+        this.up = vec3(0, 1, 0);
+        this.theta = -Math.PI / 2;     // 왼쪽
+        this.phi = Math.PI / 2;        // 수평선
+        this.updateCameraPosition();
+        this.updateUI();
+        this.triggerRender();
+    }
+    
+    /**
+     * 오른쪽 뷰 설정 (구 좌표계 방식)
+     * @method setViewRight
+     */
+    setViewRight() {
+        this.at = vec3(0, 0, 0);
+        this.up = vec3(0, 1, 0);
+        this.theta = Math.PI / 2;      // 오른쪽
+        this.phi = Math.PI / 2;        // 수평선
+        this.updateCameraPosition();
+        this.updateUI();
+        this.triggerRender();
+    }
+    
+    /**
+     * 아래쪽 뷰 설정 (구 좌표계 방식)
+     * @method setViewBottom
+     */
+    setViewBottom() {
+        this.at = vec3(0, 0, 0);
+        this.up = vec3(0, 0, 1);       // 아래에서 볼 때의 업 벡터
+        this.theta = 0;                // 정면 방향
+        this.phi = Math.PI - 0.1;      // 거의 아래쪽 (완전히 아래쪽은 gimbal lock 방지)
+        this.updateCameraPosition();
+        this.updateUI();
+        this.triggerRender();
+    }
+    
+    /**
      * 현재 카메라 상태 반환
      * @method getCameraState
      * @returns {Object} 카메라 상태 객체
@@ -397,7 +510,6 @@ class Camera {
         return {
             rotationX: this.rotationX,
             rotationY: this.rotationY,
-            rotationZ: this.rotationZ,
             scale: this.scale,
             position: [...this.position],
             eye: [...this.eye],
@@ -415,7 +527,6 @@ class Camera {
     setCameraState(state) {
         if (state.rotationX !== undefined) this.rotationX = state.rotationX;
         if (state.rotationY !== undefined) this.rotationY = state.rotationY;
-        if (state.rotationZ !== undefined) this.rotationZ = state.rotationZ;
         if (state.scale !== undefined) this.scale = state.scale;
         if (state.position !== undefined) this.position = vec3(...state.position);
         
@@ -439,7 +550,6 @@ class Camera {
         return {
             rotationX: 0,
             rotationY: 0,
-            rotationZ: 0,
             scale: 1.0,
             position: [0, 0, -3],
             eye: [0, 0, 3],
@@ -466,7 +576,6 @@ class Camera {
         return {
             rotationX: this.lerp(state1.rotationX, state2.rotationX, easedT),
             rotationY: this.lerpAngle(state1.rotationY, state2.rotationY, easedT),
-            rotationZ: this.lerpAngle(state1.rotationZ, state2.rotationZ, easedT),
             scale: this.lerp(state1.scale, state2.scale, easedT),
             position: [
                 this.lerp(state1.position[0], state2.position[0], easedT),
