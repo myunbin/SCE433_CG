@@ -277,17 +277,12 @@ class HumanModel {
         lowerArmNode.addChild(wristJointNode);
         
         // 손 (손목 관절에서 회전)
+        const handRadius = BODY_PARTS.HAND.radius * 0.7; // 30% 크기 감소
         const handNode = new Node(
             `${side}_HAND`,
-            () => this.createCapsule(
-                BODY_PARTS.HAND.radius * 0.8, 
-                BODY_PARTS.HAND.radius * 0.6, 
-                BODY_PARTS.HAND.height,
-                16,
-                -BODY_PARTS.HAND.height/2 // 손목 관절이 손의 위쪽 끝이 되도록
-            ),
+            () => this.createEllipsoid(handRadius, handRadius, handRadius),
             LIMB_COLOR,
-            vec3(0, 0, 0) // 손목 관절 위치 (부모로부터 상대적)
+            vec3(0, -handRadius, 0) // 손목 관절에서 줄어든 구의 반지름만큼 아래로 이동
         );
         wristJointNode.addChild(handNode);
         this.nodeMap.set(`${side}_HAND`, handNode);
@@ -582,8 +577,8 @@ class HumanModel {
             1, 3, 7, 3, 9, 7,
             3, 5, 9, 5, 11, 9,
             
-            // 윗면 (Y+ 방향을 향한 법선, 시계방향으로 변경하여 법선 반전)
-            0, 6, 1, 1, 6, 7,
+            // 윗면 (Y+ 방향을 향한 법선, 반시계방향으로 변경하여 법선 반전)
+            0, 1, 6, 1, 7, 6,
             
             // 아랫면 (Y- 방향을 향한 법선, 시계방향으로 변경하여 법선 반전)  
             4, 10, 5, 5, 10, 11
@@ -846,6 +841,7 @@ class HumanModel {
         }
         
         // 아래쪽 hemisphere
+        const bottomHemisphereStartIndex = vertices.length;
         for (let i = 0; i <= segments/2; i++) {
             const theta = (i * Math.PI/2) / (segments/2); // 0 to π/2
             const sinTheta = Math.sin(theta);
@@ -864,66 +860,35 @@ class HumanModel {
             }
         }
         
-        // 인덱스 생성 (바깥쪽을 향한 법선 - createEllipsoid와 동일한 순서)
-        const totalRings = (segments/2 + 1) + cylinderSteps + 1 + (segments/2 + 1);
-        for (let i = 0; i < totalRings - 1; i++) {
+        // 인덱스 생성
+        const topHemisphereRings = segments/2 + 1;
+        const cylinderRings = cylinderSteps + 1;
+        const bottomHemisphereRings = segments/2 + 1;
+        const totalRings = topHemisphereRings + cylinderRings + bottomHemisphereRings;
+        
+        // 위쪽 hemisphere와 원기둥 부분 (기존 방향)
+        const normalSectionRings = topHemisphereRings + cylinderRings - 1;
+        for (let i = 0; i < normalSectionRings; i++) {
             for (let j = 0; j < segments; j++) {
                 const current = i * (segments + 1) + j;
                 const next = current + segments + 1;
                 
-                // createEllipsoid와 동일한 순서 사용
+                // 기존 방향 (바깥쪽 법선)
                 indices.push(current, current + 1, next);
                 indices.push(next, current + 1, next + 1);
             }
         }
         
-        return { vertices, indices };
-    }
-    
-    /**
-     * 타원체 손 생성 (유기적 형태)
-     * @method createOrganicHand
-     * @param {number} radius - 기본 반지름
-     * @param {number} height - 높이
-     * @param {number} segments - 분할 수
-     * @returns {Object} vertices와 indices 배열
-     */
-    createOrganicHand(radius, height, segments = 12) {
-        const vertices = [];
-        const indices = [];
-        
-        // 손가락을 모은 형태의 타원체
-        const radiusX = radius;
-        const radiusY = height / 2;
-        const radiusZ = radius * 0.6;
-        
-        for (let i = 0; i <= segments; i++) {
-            const theta = (i * Math.PI) / segments;
-            const sinTheta = Math.sin(theta);
-            const cosTheta = Math.cos(theta);
-            
-            for (let j = 0; j <= segments; j++) {
-                const phi = (j * 2 * Math.PI) / segments;
-                const sinPhi = Math.sin(phi);
-                const cosPhi = Math.cos(phi);
-                
-                const x = radiusX * sinTheta * cosPhi;
-                const y = radiusY * cosTheta;
-                const z = radiusZ * sinTheta * sinPhi;
-                
-                vertices.push(vec4(x, y, z, 1.0));
-            }
-        }
-        
-        // 인덱스 생성 (바깥쪽을 향한 법선 - createEllipsoid와 동일한 순서)
-        for (let i = 0; i < segments; i++) {
+        // 아래쪽 hemisphere (법선 반대 방향)
+        const bottomStartRing = topHemisphereRings + cylinderRings - 1;
+        for (let i = 0; i < segments/2; i++) {
             for (let j = 0; j < segments; j++) {
-                const first = i * (segments + 1) + j;
-                const second = first + segments + 1;
+                const current = (bottomStartRing + i) * (segments + 1) + j;
+                const next = current + segments + 1;
                 
-                // createEllipsoid와 동일한 순서 사용
-                indices.push(first, first + 1, second);
-                indices.push(second, first + 1, second + 1);
+                // 법선 반대 방향 (안쪽 법선)
+                indices.push(current, next, current + 1);
+                indices.push(next, next + 1, current + 1);
             }
         }
         
@@ -1026,54 +991,5 @@ class HumanModel {
         this.setNodeTransform('RIGHT_UPPER_LEG', vec3(0, 0, 0), vec3(0, 0, 0), vec3(1, 1, 1));
         this.setNodeTransform('RIGHT_LOWER_LEG', vec3(0, 0, 0), vec3(0, 0, 0), vec3(1, 1, 1));
         this.setNodeTransform('RIGHT_FOOT', vec3(0, 0, 0), vec3(0, 0, 0), vec3(1, 1, 1));
-    }
-
-    /**
-     * 손바닥 형태 생성
-     * @method createHand
-     * @param {number} width - 너비
-     * @param {number} height - 높이
-     * @param {number} depth - 깊이
-     * @returns {Object} vertices와 indices 배열
-     */
-    createHand(width, height, depth) {
-        const w = width / 2;
-        const h = height / 2;
-        const d = depth / 2;
-        
-        // 손가락을 모은 형태의 손바닥
-        const vertices = [
-            // 손바닥 부분 (둥근 형태)
-            vec4(-w, -h, d, 1.0),             // 0: 앞면 좌하
-            vec4(w, -h, d, 1.0),              // 1: 앞면 우하
-            vec4(w * 0.8, h, d * 0.6, 1.0),  // 2: 앞면 우상 (손가락 끝)
-            vec4(-w * 0.8, h, d * 0.6, 1.0), // 3: 앞면 좌상
-            vec4(-w, -h, -d, 1.0),            // 4: 뒷면 좌하
-            vec4(w, -h, -d, 1.0),             // 5: 뒷면 우하
-            vec4(w * 0.8, h, -d * 0.6, 1.0), // 6: 뒷면 우상
-            vec4(-w * 0.8, h, -d * 0.6, 1.0) // 7: 뒷면 좌상
-        ];
-        
-        const indices = [
-            // 앞면 (Z+ 방향을 향한 법선, 반시계방향)
-            0, 1, 3, 1, 2, 3,
-            
-            // 뒷면 (Z- 방향을 향한 법선, 시계방향)
-            4, 7, 5, 7, 6, 5,
-            
-            // 아래면 (Y- 방향을 향한 법선, 시계방향 - 아래에서 올려다볼 때)
-            0, 4, 1, 4, 5, 1,
-            
-            // 위면 (Y+ 방향을 향한 법선, 반시계방향 - 위에서 내려다볼 때)
-            2, 6, 3, 6, 7, 3,
-            
-            // 왼쪽 측면 (X- 방향을 향한 법선)
-            0, 4, 2, 4, 6, 2,
-            
-            // 오른쪽 측면 (X+ 방향을 향한 법선)
-            1, 5, 2, 5, 6, 2
-        ];
-        
-        return { vertices, indices };
     }
 } 
