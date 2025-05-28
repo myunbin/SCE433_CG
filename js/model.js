@@ -2,17 +2,22 @@
  * @fileoverview 3D 인체 모델 정의 및 렌더링 모듈
  * @description 계층적 구조의 올림픽 픽토그램 스타일 인체 모델을 렌더링합니다.
  *              포즈 제어와 애니메이션을 지원하는 유기적 형태의 3D 모델입니다.
+ *              확장 가능한 부착물 시스템(공, 막대기 등)을 지원합니다.
  * @author SCE433 Computer Graphics Team
- * @version 4.0.0 - DFS 기반 Hierarchical Model 리팩토링
+ * @version 5.0.0 - 확장 가능한 부착물 시스템 추가
  */
 
 /**
  * 올림픽 픽토그램 색상 정의
  * @constant {vec4} BODY_COLOR - 몸통과 발의 색상 (흰색)
  * @constant {vec4} LIMB_COLOR - 머리, 팔, 다리의 색상 (올림픽 블루)
+ * @constant {vec4} ATTACHMENT_BALL_COLOR - 부착물 공의 색상 (빨간색)
+ * @constant {vec4} ATTACHMENT_STICK_COLOR - 부착물 막대기의 색상 (갈색)
  */
 const BODY_COLOR = vec4(1.0, 1.0, 1.0, 1.0);  // 흰색 (몸통, 발)
 const LIMB_COLOR = vec4(0.12, 0.25, 0.69, 1.0);  // 올림픽 블루 (머리, 팔, 다리)
+const ATTACHMENT_BALL_COLOR = vec4(0.8, 0.2, 0.2, 1.0);  // 빨간색 (부착물 공)
+const ATTACHMENT_STICK_COLOR = vec4(0.6, 0.4, 0.2, 1.0);  // 갈색 (부착물 막대기)
 
 /**
  * 신체 부위 크기 정의 (유기적 형태용)
@@ -27,6 +32,15 @@ const BODY_PARTS = {
     UPPER_LEG: { topRadius: 0.065, bottomRadius: 0.05, height: 0.28 },   // 더 두꺼운 허벅지
     LOWER_LEG: { topRadius: 0.06, bottomRadius: 0.05, height: 0.24 },   // 수정: 두께 증가, 길이 약간 감소
     FOOT: { width: 0.16, height: 0.05, depth: 0.14 }     // 수정: 길이·깊이 증가
+};
+
+/**
+ * 부착물 크기 정의
+ * @constant {Object} ATTACHMENT_PARTS - 각 부착물의 크기 정보
+ */
+const ATTACHMENT_PARTS = {
+    BALL: { radius: 0.06 },                              // 공 반지름
+    STICK: { radius: 0.015, length: 0.25 }               // 막대기 반지름과 길이
 };
 
 /**
@@ -175,6 +189,10 @@ class HumanModel {
         this.rootNode = null;
         // 노드 이름으로 빠른 접근을 위한 맵
         this.nodeMap = new Map();
+        
+        // 부착물 관리
+        this.attachments = new Map(); // 부착물 ID -> 부착물 정보
+        this.attachmentCounter = 0;   // 부착물 고유 ID 생성용
         
         // Hierarchical 구조 구성
         this.buildHierarchy();
@@ -419,6 +437,258 @@ class HumanModel {
     render() {
         // DFS를 통한 계층적 렌더링
         this.renderDFS(this.rootNode, modelMatrix);
+    }
+    
+    /**
+     * 부착물 추가 (공 또는 막대기)
+     * @method addAttachment
+     * @param {string} parentNodeName - 부착할 부모 노드 이름
+     * @param {string} attachmentType - 부착물 타입 ('BALL' 또는 'STICK')
+     * @param {vec3} localPosition - 부모 노드로부터의 상대 위치
+     * @param {vec3} localRotation - 부모 노드로부터의 상대 회전 (도 단위)
+     * @returns {string} 생성된 부착물의 고유 ID
+     */
+    addAttachment(parentNodeName, attachmentType, localPosition = vec3(0, -0.1, 0), localRotation = vec3(0, 0, 0)) {
+        const parentNode = this.nodeMap.get(parentNodeName);
+        if (!parentNode) {
+            console.warn(`Parent node '${parentNodeName}' not found`);
+            return null;
+        }
+        
+        // 부착물 고유 ID 생성
+        const attachmentId = `ATTACHMENT_${attachmentType}_${this.attachmentCounter++}`;
+        
+        let attachmentNode;
+        
+        if (attachmentType === 'BALL') {
+            // 공 부착물 생성 (3DOF 회전 가능)
+            attachmentNode = new Node(
+                attachmentId,
+                () => this.createSphere(ATTACHMENT_PARTS.BALL.radius),
+                ATTACHMENT_BALL_COLOR,
+                localPosition,
+                localRotation
+            );
+        } else if (attachmentType === 'STICK') {
+            // 막대기 부착물 생성
+            attachmentNode = new Node(
+                attachmentId,
+                () => this.createCylinder(
+                    ATTACHMENT_PARTS.STICK.radius,
+                    ATTACHMENT_PARTS.STICK.radius,
+                    ATTACHMENT_PARTS.STICK.length
+                ),
+                ATTACHMENT_STICK_COLOR,
+                localPosition,
+                localRotation
+            );
+        } else {
+            console.warn(`Unknown attachment type: ${attachmentType}`);
+            return null;
+        }
+        
+        // 부모 노드에 부착물 추가
+        parentNode.addChild(attachmentNode);
+        this.nodeMap.set(attachmentId, attachmentNode);
+        
+        // 부착물 정보 저장
+        this.attachments.set(attachmentId, {
+            type: attachmentType,
+            parentNodeName: parentNodeName,
+            node: attachmentNode,
+            isAttachment: true  // 부착물임을 표시
+        });
+        
+        return attachmentId;
+    }
+    
+    /**
+     * 부착물 제거
+     * @method removeAttachment
+     * @param {string} attachmentId - 제거할 부착물 ID
+     * @returns {boolean} 제거 성공 여부
+     */
+    removeAttachment(attachmentId) {
+        const attachmentInfo = this.attachments.get(attachmentId);
+        if (!attachmentInfo) {
+            console.warn(`Attachment '${attachmentId}' not found`);
+            return false;
+        }
+        
+        // 자식 부착물들도 함께 제거
+        const childAttachments = this.getAttachmentsForNode(attachmentId);
+        childAttachments.forEach(child => {
+            this.removeAttachment(child.id);
+        });
+        
+        const parentNode = this.nodeMap.get(attachmentInfo.parentNodeName);
+        if (parentNode) {
+            parentNode.removeChild(attachmentInfo.node);
+        }
+        
+        this.nodeMap.delete(attachmentId);
+        this.attachments.delete(attachmentId);
+        
+        return true;
+    }
+    
+    /**
+     * 모든 부착물 제거
+     * @method removeAllAttachments
+     */
+    removeAllAttachments() {
+        const attachmentIds = Array.from(this.attachments.keys());
+        attachmentIds.forEach(id => this.removeAttachment(id));
+    }
+    
+    /**
+     * 부착물 변환 설정 (위치 + 회전)
+     * @method setAttachmentTransform
+     * @param {string} attachmentId - 부착물 ID
+     * @param {vec3} translation - 이동값
+     * @param {vec3} rotation - 회전값 (도 단위)
+     * @param {vec3} scale - 크기 조절값
+     * @returns {boolean} 설정 성공 여부
+     */
+    setAttachmentTransform(attachmentId, translation = vec3(0, 0, 0), rotation = vec3(0, 0, 0), scale = vec3(1, 1, 1)) {
+        const attachmentInfo = this.attachments.get(attachmentId);
+        if (!attachmentInfo) {
+            console.warn(`Attachment '${attachmentId}' not found`);
+            return false;
+        }
+        
+        attachmentInfo.node.setDynamicTransform(translation, rotation, scale);
+        return true;
+    }
+    
+    /**
+     * 부착물 위치 설정
+     * @method setAttachmentPosition
+     * @param {string} attachmentId - 부착물 ID
+     * @param {vec3} position - 새로운 위치값
+     * @returns {boolean} 설정 성공 여부
+     */
+    setAttachmentPosition(attachmentId, position) {
+        const attachmentInfo = this.attachments.get(attachmentId);
+        if (!attachmentInfo) {
+            console.warn(`Attachment '${attachmentId}' not found`);
+            return false;
+        }
+        
+        // 기존 회전값과 스케일 유지하면서 위치만 변경
+        const node = attachmentInfo.node;
+        node.setDynamicTransform(position, node.dynamicRotation, node.dynamicScale);
+        return true;
+    }
+    
+    /**
+     * 부착물 회전 설정
+     * @method setAttachmentRotation
+     * @param {string} attachmentId - 부착물 ID
+     * @param {vec3} rotation - 새로운 회전값 (도 단위)
+     * @returns {boolean} 설정 성공 여부
+     */
+    setAttachmentRotation(attachmentId, rotation) {
+        const attachmentInfo = this.attachments.get(attachmentId);
+        if (!attachmentInfo) {
+            console.warn(`Attachment '${attachmentId}' not found`);
+            return false;
+        }
+        
+        // 기존 위치값과 스케일 유지하면서 회전만 변경
+        const node = attachmentInfo.node;
+        node.setDynamicTransform(node.dynamicTranslation, rotation, node.dynamicScale);
+        return true;
+    }
+    
+    /**
+     * 부착물 목록 가져오기
+     * @method getAttachments
+     * @returns {Array} 부착물 정보 배열
+     */
+    getAttachments() {
+        const attachmentList = [];
+        for (const [id, info] of this.attachments) {
+            attachmentList.push({
+                id: id,
+                type: info.type,
+                parentNodeName: info.parentNodeName,
+                isAttachment: info.isAttachment || false
+            });
+        }
+        return attachmentList;
+    }
+    
+    /**
+     * 특정 노드에 부착된 부착물들 가져오기
+     * @method getAttachmentsForNode
+     * @param {string} nodeName - 노드 이름
+     * @returns {Array} 해당 노드에 부착된 부착물 정보 배열
+     */
+    getAttachmentsForNode(nodeName) {
+        const attachmentList = [];
+        for (const [id, info] of this.attachments) {
+            if (info.parentNodeName === nodeName) {
+                attachmentList.push({
+                    id: id,
+                    type: info.type,
+                    parentNodeName: info.parentNodeName,
+                    isAttachment: info.isAttachment || false
+                });
+            }
+        }
+        return attachmentList;
+    }
+    
+    /**
+     * 모든 노드 목록 가져오기 (인체 부위 + 부착물)
+     * @method getAllNodes
+     * @returns {Array} 모든 노드 정보 배열
+     */
+    getAllNodes() {
+        const nodeList = [];
+        
+        // 인체 부위 노드들
+        const bodyParts = [
+            'LEFT_HAND', 'RIGHT_HAND', 'LEFT_FOOT', 'RIGHT_FOOT', 
+            'HEAD', 'TORSO', 'LEFT_UPPER_ARM', 'RIGHT_UPPER_ARM',
+            'LEFT_LOWER_ARM', 'RIGHT_LOWER_ARM', 'LEFT_UPPER_LEG', 
+            'RIGHT_UPPER_LEG', 'LEFT_LOWER_LEG', 'RIGHT_LOWER_LEG'
+        ];
+        
+        bodyParts.forEach(nodeName => {
+            if (this.nodeMap.has(nodeName)) {
+                nodeList.push({
+                    id: nodeName,
+                    name: nodeName,
+                    isAttachment: false
+                });
+            }
+        });
+        
+        // 부착물 노드들
+        for (const [id, info] of this.attachments) {
+            nodeList.push({
+                id: id,
+                name: `${info.type === 'BALL' ? '공' : '막대기'} (${info.parentNodeName})`,
+                isAttachment: true,
+                type: info.type,
+                parentNodeName: info.parentNodeName
+            });
+        }
+        
+        return nodeList;
+    }
+    
+    /**
+     * 구체(sphere) 생성 - 부착물 공용
+     * @method createSphere
+     * @param {number} radius - 반지름
+     * @param {number} segments - 분할 수
+     * @returns {Object} vertices와 indices 배열
+     */
+    createSphere(radius, segments = 16) {
+        return this.createEllipsoid(radius, radius, radius, segments);
     }
     
     /**

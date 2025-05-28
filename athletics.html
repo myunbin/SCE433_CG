@@ -233,6 +233,106 @@
                 </div>
             </div>
             
+            <!-- 부착물 관리 -->
+            <div class="accordion-section">
+                <div class="accordion-header" data-target="attachment-control">
+                    <span class="accordion-title">🔗 부착물 관리</span>
+                    <span class="accordion-arrow">▼</span>
+                </div>
+                <div class="accordion-content" id="attachment-control">
+                    <!-- 부착물 추가 -->
+                    <div class="subsection-title">부착물 추가</div>
+                    <div class="controls">
+                        <select id="attachment-parent-selector">
+                            <option value="">부착할 부위를 선택하세요</option>
+                            <option value="LEFT_HAND">왼손</option>
+                            <option value="RIGHT_HAND">오른손</option>
+                            <option value="LEFT_FOOT">왼발</option>
+                            <option value="RIGHT_FOOT">오른발</option>
+                            <option value="HEAD">머리</option>
+                            <option value="TORSO">몸통</option>
+                            <!-- 부착물들도 동적으로 여기에 추가됩니다 -->
+                        </select>
+                        <div style="display: flex; gap: 10px; margin-top: 10px;">
+                            <button id="add-ball-attachment">공 추가</button>
+                            <button id="add-stick-attachment">막대기 추가</button>
+                        </div>
+                    </div>
+                    
+                    <!-- 부착물 목록 및 제어 -->
+                    <div class="subsection-title">부착물 목록</div>
+                    <div class="controls">
+                        <select id="attachment-selector">
+                            <option value="">부착물이 없습니다</option>
+                        </select>
+                        <div style="display: flex; gap: 10px; margin-top: 10px;">
+                            <button id="remove-attachment" disabled>선택 제거</button>
+                            <button id="remove-all-attachments">전체 제거</button>
+                        </div>
+                    </div>
+                    
+                    <!-- 부착물 위치 컨트롤 -->
+                    <div class="subsection-title">부착물 위치 (<span id="selected-attachment-name">부착물을 선택하세요</span>)</div>
+                    <div class="slider-controls" id="attachment-position-controls" style="display: none;">
+                        <div class="slider-container">
+                            <div class="slider-label">
+                                <span>위치 X</span>
+                                <span id="attachment-position-x-value">0.0</span>
+                            </div>
+                            <input type="range" id="attachment-position-x" min="-0.5" max="0.5" value="0" step="0.01">
+                        </div>
+                        
+                        <div class="slider-container">
+                            <div class="slider-label">
+                                <span>위치 Y</span>
+                                <span id="attachment-position-y-value">-0.1</span>
+                            </div>
+                            <input type="range" id="attachment-position-y" min="-0.5" max="0.5" value="-0.1" step="0.01">
+                        </div>
+                        
+                        <div class="slider-container">
+                            <div class="slider-label">
+                                <span>위치 Z</span>
+                                <span id="attachment-position-z-value">0.0</span>
+                            </div>
+                            <input type="range" id="attachment-position-z" min="-0.5" max="0.5" value="0" step="0.01">
+                        </div>
+                    </div>
+                    
+                    <!-- 부착물 회전 컨트롤 -->
+                    <div class="subsection-title">부착물 회전</div>
+                    <div class="slider-controls" id="attachment-rotation-controls" style="display: none;">
+                        <div class="slider-container">
+                            <div class="slider-label">
+                                <span>회전 X</span>
+                                <span id="attachment-rotate-x-value">0°</span>
+                            </div>
+                            <input type="range" id="attachment-rotate-x" min="-180" max="180" value="0">
+                        </div>
+                        
+                        <div class="slider-container">
+                            <div class="slider-label">
+                                <span>회전 Y</span>
+                                <span id="attachment-rotate-y-value">0°</span>
+                            </div>
+                            <input type="range" id="attachment-rotate-y" min="-180" max="180" value="0">
+                        </div>
+                        
+                        <div class="slider-container">
+                            <div class="slider-label">
+                                <span>회전 Z</span>
+                                <span id="attachment-rotate-z-value">0°</span>
+                            </div>
+                            <input type="range" id="attachment-rotate-z" min="-180" max="180" value="0">
+                        </div>
+                        
+                        <div class="controls">
+                            <button id="reset-attachment-transform">위치/회전 초기화</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
             <!-- 포즈 저장/관리 -->
             <div class="accordion-section">
                 <div class="accordion-header" data-target="pose-management">

@@ -122,6 +122,9 @@ function setupEventListeners() {
         document.getElementById(id)?.addEventListener('click', handler);
     });
     
+    // 부착물 관리 이벤트 리스너
+    setupAttachmentControls();
+    
     // Assignment3 방식 카메라 벡터 슬라이더들
     const cameraVectorControls = [
         // Eye 위치
@@ -333,6 +336,12 @@ function resetAll() {
     if (jointSelector) jointSelector.value = "";
     if (jointControls) jointControls.style.display = "none";
     if (jointName) jointName.textContent = "관절을 선택하세요";
+    
+    // 부착물 초기화
+    poseController?.removeAllAttachments();
+    updateAttachmentList();
+    updateAttachmentParentList();
+    selectAttachment('');
     
     // 모듈 상태 초기화
     poseController?.resetAllRotations();
@@ -555,4 +564,309 @@ function bindTexture() {
             gl.uniform1i(textureLocation, 0);
         }
     }
-} 
+}
+
+/**
+ * 부착물 컨트롤 설정
+ * @function setupAttachmentControls
+ * @description 부착물 관련 UI 이벤트 리스너 설정
+ */
+function setupAttachmentControls() {
+    // 부착물 추가 버튼들
+    document.getElementById('add-ball-attachment')?.addEventListener('click', function() {
+        const parentSelector = document.getElementById('attachment-parent-selector');
+        const parentNode = parentSelector.value;
+        
+        if (!parentNode) {
+            alert('부착할 부위를 먼저 선택해주세요.');
+                return;
+            }
+            
+        const attachmentId = poseController.addAttachment(parentNode, 'BALL');
+        if (attachmentId) {
+            updateAttachmentList();
+            updateAttachmentParentList(); // 부착물 목록도 업데이트
+        }
+    });
+    
+    document.getElementById('add-stick-attachment')?.addEventListener('click', function() {
+        const parentSelector = document.getElementById('attachment-parent-selector');
+        const parentNode = parentSelector.value;
+        
+        if (!parentNode) {
+            alert('부착할 부위를 먼저 선택해주세요.');
+                return;
+            }
+            
+        const attachmentId = poseController.addAttachment(parentNode, 'STICK');
+        if (attachmentId) {
+            updateAttachmentList();
+            updateAttachmentParentList(); // 부착물 목록도 업데이트
+        }
+    });
+    
+    // 부착물 선택
+    document.getElementById('attachment-selector')?.addEventListener('change', function() {
+        const attachmentId = this.value;
+        selectAttachment(attachmentId);
+    });
+    
+    // 부착물 제거 버튼들
+    document.getElementById('remove-attachment')?.addEventListener('click', function() {
+        const attachmentSelector = document.getElementById('attachment-selector');
+        const attachmentId = attachmentSelector.value;
+        
+        if (!attachmentId) {
+            alert('제거할 부착물을 선택해주세요.');
+                return;
+            }
+            
+        if (poseController.removeAttachment(attachmentId)) {
+            updateAttachmentList();
+            updateAttachmentParentList(); // 부착물 목록도 업데이트
+            selectAttachment(''); // 선택 해제
+        }
+    });
+    
+    document.getElementById('remove-all-attachments')?.addEventListener('click', function() {
+        if (confirm('모든 부착물을 제거하시겠습니까?')) {
+            poseController.removeAllAttachments();
+            updateAttachmentList();
+            updateAttachmentParentList(); // 부착물 목록도 업데이트
+            selectAttachment(''); // 선택 해제
+        }
+    });
+    
+    // 부착물 위치 슬라이더들
+    ['x', 'y', 'z'].forEach(axis => {
+        const slider = document.getElementById(`attachment-position-${axis}`);
+        const valueDisplay = document.getElementById(`attachment-position-${axis}-value`);
+        
+        slider?.addEventListener('input', function() {
+                const value = parseFloat(this.value);
+            valueDisplay.textContent = value.toFixed(2);
+            
+            const attachmentSelector = document.getElementById('attachment-selector');
+            const attachmentId = attachmentSelector.value;
+            
+            if (attachmentId) {
+                poseController.setAttachmentPosition(attachmentId, axis, value);
+            }
+        });
+    });
+    
+    // 부착물 회전 슬라이더들
+    ['x', 'y', 'z'].forEach(axis => {
+        const slider = document.getElementById(`attachment-rotate-${axis}`);
+        const valueDisplay = document.getElementById(`attachment-rotate-${axis}-value`);
+        
+        slider?.addEventListener('input', function() {
+            const value = parseInt(this.value);
+            valueDisplay.textContent = value + '°';
+            
+            const attachmentSelector = document.getElementById('attachment-selector');
+            const attachmentId = attachmentSelector.value;
+            
+            if (attachmentId) {
+                poseController.setAttachmentRotation(attachmentId, axis, value);
+            }
+        });
+    });
+    
+    // 부착물 변환 초기화 버튼
+    document.getElementById('reset-attachment-transform')?.addEventListener('click', function() {
+        const attachmentSelector = document.getElementById('attachment-selector');
+        const attachmentId = attachmentSelector.value;
+        
+        if (!attachmentId) {
+            alert('초기화할 부착물을 선택해주세요.');
+        return;
+    }
+    
+        // 위치값을 기본값으로 설정
+        ['x', 'y', 'z'].forEach(axis => {
+            const defaultPos = axis === 'y' ? -0.1 : 0.0;
+            poseController.setAttachmentPosition(attachmentId, axis, defaultPos);
+            
+            const posSlider = document.getElementById(`attachment-position-${axis}`);
+            const posValueDisplay = document.getElementById(`attachment-position-${axis}-value`);
+            
+            if (posSlider) posSlider.value = defaultPos;
+            if (posValueDisplay) posValueDisplay.textContent = defaultPos.toFixed(2);
+        });
+        
+        // 회전값을 0으로 설정
+        ['x', 'y', 'z'].forEach(axis => {
+            poseController.setAttachmentRotation(attachmentId, axis, 0);
+            
+            const rotSlider = document.getElementById(`attachment-rotate-${axis}`);
+            const rotValueDisplay = document.getElementById(`attachment-rotate-${axis}-value`);
+            
+            if (rotSlider) rotSlider.value = 0;
+            if (rotValueDisplay) rotValueDisplay.textContent = '0°';
+        });
+        
+        poseController.showStatusMessage('부착물 위치/회전이 초기화되었습니다.', 'success');
+    });
+    
+    // 초기 부착물 부모 목록 업데이트
+    updateAttachmentParentList();
+}
+
+/**
+ * 부착물 목록 업데이트
+ * @function updateAttachmentList
+ * @description 부착물 선택 드롭다운을 현재 부착물 목록으로 업데이트
+ */
+function updateAttachmentList() {
+    const attachmentSelector = document.getElementById('attachment-selector');
+    const removeButton = document.getElementById('remove-attachment');
+    
+    if (!attachmentSelector) return;
+    
+    // 기존 옵션 제거
+    attachmentSelector.innerHTML = '';
+    
+    // 부착물 목록 가져오기
+    const attachments = poseController.getAttachments();
+    
+    if (attachments.length === 0) {
+        attachmentSelector.innerHTML = '<option value="">부착물이 없습니다</option>';
+        removeButton.disabled = true;
+    } else {
+        attachmentSelector.innerHTML = '<option value="">부착물을 선택하세요</option>';
+        
+        attachments.forEach(attachment => {
+            const option = document.createElement('option');
+            option.value = attachment.id;
+            
+            const typeName = attachment.type === 'BALL' ? '공' : '막대기';
+            const parentName = poseController.getNodeDisplayName(attachment.parentNodeName);
+            option.textContent = `${typeName} (${parentName})`;
+            
+            attachmentSelector.appendChild(option);
+        });
+        
+        removeButton.disabled = false;
+    }
+}
+
+/**
+ * 부착물 부모 목록 업데이트 (인체 부위 + 기존 부착물)
+ * @function updateAttachmentParentList
+ * @description 부착물을 부착할 수 있는 모든 노드(인체 부위 + 기존 부착물) 목록을 업데이트
+ */
+function updateAttachmentParentList() {
+    const parentSelector = document.getElementById('attachment-parent-selector');
+    
+    if (!parentSelector) return;
+    
+    // 현재 선택값 저장
+    const currentValue = parentSelector.value;
+    
+    // 기존 옵션 제거
+    parentSelector.innerHTML = '<option value="">부착할 부위를 선택하세요</option>';
+    
+    // 인체 부위 추가
+    const bodyParts = [
+        { value: 'LEFT_HAND', text: '왼손' },
+        { value: 'RIGHT_HAND', text: '오른손' },
+        { value: 'LEFT_FOOT', text: '왼발' },
+        { value: 'RIGHT_FOOT', text: '오른발' },
+        { value: 'HEAD', text: '머리' },
+        { value: 'TORSO', text: '몸통' }
+    ];
+    
+    bodyParts.forEach(part => {
+        const option = document.createElement('option');
+        option.value = part.value;
+        option.textContent = part.text;
+        parentSelector.appendChild(option);
+    });
+    
+    // 기존 부착물들 추가 (다른 부착물에 부착 가능)
+    const attachments = poseController.getAttachments();
+    if (attachments.length > 0) {
+        // 구분선 추가
+        const separatorOption = document.createElement('option');
+        separatorOption.disabled = true;
+        separatorOption.textContent = '--- 기존 부착물 ---';
+        parentSelector.appendChild(separatorOption);
+        
+        attachments.forEach(attachment => {
+            const option = document.createElement('option');
+            option.value = attachment.id;
+            
+            const typeName = attachment.type === 'BALL' ? '공' : '막대기';
+            const parentName = poseController.getNodeDisplayName(attachment.parentNodeName);
+            option.textContent = `${typeName} (${parentName}에 부착됨)`;
+            
+            parentSelector.appendChild(option);
+        });
+    }
+    
+    // 이전 선택값 복원 (가능한 경우)
+    if (currentValue) {
+        const optionExists = Array.from(parentSelector.options).some(option => option.value === currentValue);
+        if (optionExists) {
+            parentSelector.value = currentValue;
+        }
+    }
+}
+
+/**
+ * 부착물 선택
+ * @function selectAttachment
+ * @param {string} attachmentId - 선택할 부착물 ID
+ * @description 부착물을 선택하고 위치/회전 컨트롤을 업데이트
+ */
+function selectAttachment(attachmentId) {
+    const positionControlsDiv = document.getElementById('attachment-position-controls');
+    const rotationControlsDiv = document.getElementById('attachment-rotation-controls');
+    const attachmentNameSpan = document.getElementById('selected-attachment-name');
+    
+    if (attachmentId) {
+        // 부착물 정보 가져오기
+        const attachments = poseController.getAttachments();
+        const attachment = attachments.find(a => a.id === attachmentId);
+        
+        if (attachment) {
+            // 컨트롤 표시
+            positionControlsDiv.style.display = 'block';
+            rotationControlsDiv.style.display = 'block';
+            
+            const typeName = attachment.type === 'BALL' ? '공' : '막대기';
+            const parentName = poseController.getNodeDisplayName(attachment.parentNodeName);
+            attachmentNameSpan.textContent = `${typeName} (${parentName})`;
+            
+            // 현재 위치값으로 슬라이더 업데이트
+            const position = poseController.getAttachmentPosition(attachmentId);
+            if (position) {
+                ['x', 'y', 'z'].forEach(axis => {
+                    const slider = document.getElementById(`attachment-position-${axis}`);
+                    const valueDisplay = document.getElementById(`attachment-position-${axis}-value`);
+                    
+                    if (slider) slider.value = position[axis];
+                    if (valueDisplay) valueDisplay.textContent = position[axis].toFixed(2);
+                });
+            }
+            
+            // 현재 회전값으로 슬라이더 업데이트
+            const rotation = poseController.getAttachmentRotation(attachmentId);
+            if (rotation) {
+                ['x', 'y', 'z'].forEach(axis => {
+                    const slider = document.getElementById(`attachment-rotate-${axis}`);
+                    const valueDisplay = document.getElementById(`attachment-rotate-${axis}-value`);
+                    
+                    if (slider) slider.value = rotation[axis];
+                    if (valueDisplay) valueDisplay.textContent = rotation[axis] + '°';
+                });
+            }
+        }
+    } else {
+        // 컨트롤 숨기기
+        positionControlsDiv.style.display = 'none';
+        rotationControlsDiv.style.display = 'none';
+        attachmentNameSpan.textContent = '부착물을 선택하세요';
+    }
+}

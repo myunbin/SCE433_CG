@@ -183,6 +183,11 @@ class PoseController {
         this.selectedJoint = '';
         this.jointRotations = {};
         
+        // 부착물 관리
+        this.selectedAttachment = '';
+        this.attachmentRotations = new Map(); // 부착물 ID -> 회전값
+        this.attachmentPositions = new Map(); // 부착물 ID -> 위치값
+        
         // 기본 회전값 초기화
         this.initializeJointRotations();
         
@@ -532,5 +537,218 @@ class PoseController {
                 messageDiv.remove();
             }
         }, 3000);
+    }
+    
+    /**
+     * 부착물 추가
+     * @method addAttachment
+     * @param {string} parentNodeName - 부착할 부모 노드 이름
+     * @param {string} attachmentType - 부착물 타입 ('BALL' 또는 'STICK')
+     * @param {vec3} localPosition - 부모 노드로부터의 상대 위치
+     * @param {vec3} localRotation - 부모 노드로부터의 상대 회전
+     * @returns {string} 생성된 부착물 ID
+     */
+    addAttachment(parentNodeName, attachmentType, localPosition = vec3(0, -0.1, 0), localRotation = vec3(0, 0, 0)) {
+        const attachmentId = this.humanModel.addAttachment(parentNodeName, attachmentType, localPosition, localRotation);
+        
+        if (attachmentId) {
+            // 부착물 회전값 초기화
+            this.attachmentRotations.set(attachmentId, {
+                x: localRotation[0],
+                y: localRotation[1], 
+                z: localRotation[2]
+            });
+            
+            // 부착물 위치값 초기화
+            this.attachmentPositions.set(attachmentId, {
+                x: localPosition[0],
+                y: localPosition[1],
+                z: localPosition[2]
+            });
+            
+            this.showStatusMessage(`${attachmentType === 'BALL' ? '공' : '막대기'}이 ${this.getNodeDisplayName(parentNodeName)}에 추가되었습니다.`, 'success');
+            
+            // 렌더링 업데이트
+            if (window.render) {
+                window.render();
+            }
+        }
+        
+        return attachmentId;
+    }
+    
+    /**
+     * 부착물 제거
+     * @method removeAttachment
+     * @param {string} attachmentId - 제거할 부착물 ID
+     * @returns {boolean} 제거 성공 여부
+     */
+    removeAttachment(attachmentId) {
+        const success = this.humanModel.removeAttachment(attachmentId);
+        
+        if (success) {
+            this.attachmentRotations.delete(attachmentId);
+            this.attachmentPositions.delete(attachmentId);
+            
+            // 현재 선택된 부착물이 제거된 경우 선택 해제
+            if (this.selectedAttachment === attachmentId) {
+                this.selectedAttachment = '';
+            }
+            
+            this.showStatusMessage('부착물이 제거되었습니다.', 'success');
+            
+            // 렌더링 업데이트
+            if (window.render) {
+                window.render();
+            }
+        }
+        
+        return success;
+    }
+    
+    /**
+     * 모든 부착물 제거
+     * @method removeAllAttachments
+     */
+    removeAllAttachments() {
+        this.humanModel.removeAllAttachments();
+        this.attachmentRotations.clear();
+        this.attachmentPositions.clear();
+        this.selectedAttachment = '';
+        
+        this.showStatusMessage('모든 부착물이 제거되었습니다.', 'success');
+        
+        // 렌더링 업데이트
+        if (window.render) {
+            window.render();
+        }
+    }
+    
+    /**
+     * 부착물 회전 설정
+     * @method setAttachmentRotation
+     * @param {string} attachmentId - 부착물 ID
+     * @param {string} axis - 회전축 ('x', 'y', 'z')
+     * @param {number} angle - 회전 각도 (도 단위)
+     */
+    setAttachmentRotation(attachmentId, axis, angle) {
+        if (!this.attachmentRotations.has(attachmentId)) return;
+        
+        const rotation = this.attachmentRotations.get(attachmentId);
+        rotation[axis] = angle;
+        
+        // 모델에 적용
+        this.humanModel.setAttachmentRotation(
+            attachmentId,
+            vec3(rotation.x, rotation.y, rotation.z)
+        );
+        
+        // 렌더링 업데이트
+        if (window.render) {
+            window.render();
+        }
+    }
+    
+    /**
+     * 부착물 위치 설정
+     * @method setAttachmentPosition
+     * @param {string} attachmentId - 부착물 ID
+     * @param {string} axis - 위치축 ('x', 'y', 'z')
+     * @param {number} value - 위치값
+     */
+    setAttachmentPosition(attachmentId, axis, value) {
+        if (!this.attachmentPositions.has(attachmentId)) return;
+        
+        const position = this.attachmentPositions.get(attachmentId);
+        position[axis] = value;
+        
+        // 모델에 적용
+        this.humanModel.setAttachmentPosition(
+            attachmentId,
+            vec3(position.x, position.y, position.z)
+        );
+        
+        // 렌더링 업데이트
+        if (window.render) {
+            window.render();
+        }
+    }
+    
+    /**
+     * 부착물의 현재 위치 가져오기
+     * @method getAttachmentPosition
+     * @param {string} attachmentId - 부착물 ID
+     * @returns {Object} 위치값 {x, y, z}
+     */
+    getAttachmentPosition(attachmentId) {
+        return this.attachmentPositions.get(attachmentId) || { x: 0, y: 0, z: 0 };
+    }
+    
+    /**
+     * 부착물의 현재 회전 가져오기
+     * @method getAttachmentRotation
+     * @param {string} attachmentId - 부착물 ID
+     * @returns {Object} 회전값 {x, y, z}
+     */
+    getAttachmentRotation(attachmentId) {
+        return this.attachmentRotations.get(attachmentId) || { x: 0, y: 0, z: 0 };
+    }
+    
+    /**
+     * 부착물 목록 가져오기
+     * @method getAttachments
+     * @returns {Array} 부착물 정보 배열
+     */
+    getAttachments() {
+        return this.humanModel.getAttachments();
+    }
+    
+    /**
+     * 특정 노드에 부착된 부착물들 가져오기
+     * @method getAttachmentsForNode
+     * @param {string} nodeName - 노드 이름
+     * @returns {Array} 해당 노드에 부착된 부착물 정보 배열
+     */
+    getAttachmentsForNode(nodeName) {
+        return this.humanModel.getAttachmentsForNode(nodeName);
+    }
+    
+    /**
+     * 노드 이름을 사용자 친화적인 이름으로 변환
+     * @method getNodeDisplayName
+     * @param {string} nodeName - 노드 이름
+     * @returns {string} 표시용 이름
+     */
+    getNodeDisplayName(nodeName) {
+        // 먼저 부착물인지 확인
+        if (this.attachmentRotations.has(nodeName)) {
+            const attachments = this.getAttachments();
+            const attachment = attachments.find(a => a.id === nodeName);
+            if (attachment) {
+                const typeName = attachment.type === 'BALL' ? '공' : '막대기';
+                const parentDisplayName = this.getNodeDisplayName(attachment.parentNodeName);
+                return `${typeName} (${parentDisplayName})`;
+            }
+        }
+        
+        // 인체 부위 표시명
+        const displayNames = {
+            'LEFT_HAND': '왼손',
+            'RIGHT_HAND': '오른손',
+            'LEFT_FOOT': '왼발',
+            'RIGHT_FOOT': '오른발',
+            'HEAD': '머리',
+            'TORSO': '몸통',
+            'LEFT_UPPER_ARM': '왼쪽 어깨',
+            'RIGHT_UPPER_ARM': '오른쪽 어깨',
+            'LEFT_LOWER_ARM': '왼쪽 팔꿈치',
+            'RIGHT_LOWER_ARM': '오른쪽 팔꿈치',
+            'LEFT_UPPER_LEG': '왼쪽 엉덩이',
+            'RIGHT_UPPER_LEG': '오른쪽 엉덩이',
+            'LEFT_LOWER_LEG': '왼쪽 무릎',
+            'RIGHT_LOWER_LEG': '오른쪽 무릎'
+        };
+        
+        return displayNames[nodeName] || nodeName;
     }
 } 

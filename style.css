@@ -730,4 +730,176 @@ select:focus {
     flex: 1;
     padding: 8px;
     font-size: 12px;
+}
+
+/* 부착물 관리 스타일 */
+.attachment-controls {
+    margin-top: 15px;
+}
+
+.attachment-add-section {
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    margin-bottom: 15px;
+}
+
+.attachment-list-section {
+    padding: 15px;
+    background: #f1f3f4;
+    border-radius: 8px;
+    margin-bottom: 15px;
+}
+
+.attachment-control-section {
+    padding: 15px;
+    background: #e8f5e8;
+    border-radius: 8px;
+    margin-bottom: 15px;
+}
+
+/* 부착물 위치 컨트롤 스타일 */
+#attachment-position-controls {
+    background: #fff3cd;
+    padding: 12px;
+    border-radius: 6px;
+    border: 1px solid #ffeaa7;
+    margin-bottom: 15px;
+}
+
+#attachment-position-controls .slider-container {
+    margin-bottom: 12px;
+}
+
+#attachment-position-controls input[type="range"] {
+    background: linear-gradient(to right, #ffeaa7, #fdcb6e);
+}
+
+#attachment-position-controls input[type="range"]::-webkit-slider-thumb {
+    background: #e17055;
+}
+
+#attachment-position-controls input[type="range"]::-webkit-slider-thumb:hover {
+    background: #d63031;
+}
+
+/* 부착물 회전 컨트롤 스타일 */
+#attachment-rotation-controls {
+    background: #e8f4fd;
+    padding: 12px;
+    border-radius: 6px;
+    border: 1px solid #74b9ff;
+    margin-bottom: 15px;
+}
+
+#attachment-rotation-controls .slider-container {
+    margin-bottom: 12px;
+}
+
+#attachment-rotation-controls input[type="range"]::-webkit-slider-thumb {
+    background: #0984e3;
+}
+
+#attachment-rotation-controls input[type="range"]::-webkit-slider-thumb:hover {
+    background: #2d3436;
+}
+
+/* 부착물 버튼 스타일 */
+#add-ball-attachment {
+    background: linear-gradient(135deg, #ff7675, #e84393);
+    color: white;
+}
+
+#add-ball-attachment:hover {
+    background: linear-gradient(135deg, #d63031, #c44569);
+    transform: translateY(-1px);
+}
+
+#add-stick-attachment {
+    background: linear-gradient(135deg, #a0855b, #8b4513);
+    color: white;
+}
+
+#add-stick-attachment:hover {
+    background: linear-gradient(135deg, #8b7355, #654321);
+    transform: translateY(-1px);
+}
+
+#remove-attachment {
+    background: linear-gradient(135deg, #636e72, #2d3436);
+    color: white;
+}
+
+#remove-attachment:hover {
+    background: linear-gradient(135deg, #2d3436, #636e72);
+}
+
+#remove-attachment:disabled {
+    background: #ddd;
+    color: #999;
+    cursor: not-allowed;
+}
+
+#remove-all-attachments {
+    background: linear-gradient(135deg, #e17055, #d63031);
+    color: white;
+}
+
+#remove-all-attachments:hover {
+    background: linear-gradient(135deg, #d63031, #e17055);
+}
+
+/* 부착물 선택 드롭다운 */
+#attachment-selector, #attachment-parent-selector {
+    width: 100%;
+    margin-bottom: 10px;
+}
+
+#attachment-selector:focus, #attachment-parent-selector:focus {
+    border-color: #74b9ff;
+    box-shadow: 0 0 0 2px rgba(116, 185, 255, 0.2);
+}
+
+/* 부착물 상태 표시 */
+#selected-attachment-name {
+    color: #0984e3;
+    font-weight: bold;
+    font-style: italic;
+}
+
+.attachment-status {
+    font-size: 11px;
+    color: #636e72;
+    text-align: center;
+    margin-top: 10px;
+}
+
+/* 부착물 구분선 스타일 */
+option:disabled {
+    background-color: #f8f9fa;
+    color: #6c757d;
+    font-weight: bold;
+    font-style: italic;
+}
+
+/* 부착물 계층 표시 */
+.attachment-hierarchy {
+    padding-left: 20px;
+    border-left: 2px solid #ddd;
+    margin-left: 10px;
+}
+
+/* 부착물 연결 체인 표시 */
+.attachment-chain::before {
+    content: "🔗 ";
+    color: #74b9ff;
+}
+
+/* 부착물 타입별 아이콘 */
+.ball-attachment::before {
+    content: "🔴 ";
+}
+
+.stick-attachment::before {
+    content: "🟤 ";
 } 
