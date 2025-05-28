@@ -1,608 +1,845 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ko">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>2020 도쿄 올림픽 픽토그램 - Athletics</title>
-    <link rel="stylesheet" href="style.css">
-    
-    <!-- WebGL 셰이더 정의 -->
-    <script id="vertex-shader" type="x-shader/x-vertex">
-    attribute vec4 vPosition;
-    attribute vec4 vColor;
-    attribute vec3 vNormal;
-    attribute vec2 vTexCoord;
-    
-    varying vec4 fColor;
-    varying vec3 fWorldPosition;
-    varying vec3 fWorldNormal;
-    varying vec2 fTexCoord;
-    
-    uniform mat4 uModelMatrix;
-    uniform mat4 uViewMatrix;
-    uniform mat4 uProjectionMatrix;
-    uniform mat3 uNormalMatrix;
-    
-    void main() {
-        // 월드 좌표 계산
-        vec4 worldPosition = uModelMatrix * vPosition;
-        fWorldPosition = worldPosition.xyz;
-        
-        // 뷰 좌표 계산
-        vec4 viewPosition = uViewMatrix * worldPosition;
-        
-        // 클립 좌표 계산
-        gl_Position = uProjectionMatrix * viewPosition;
-        
-        // 월드 공간에서의 법선 변환
-        fWorldNormal = normalize(uNormalMatrix * vNormal);
-        
-        // 색상 전달
-        fColor = vColor;
-        
-        // Texture coordinate 전달
-        fTexCoord = vTexCoord;
-    }
-    </script>
-    
-    <script id="fragment-shader" type="x-shader/x-fragment">
-    precision mediump float;
-    
-    varying vec4 fColor;
-    varying vec3 fWorldPosition;
-    varying vec3 fWorldNormal;
-    varying vec2 fTexCoord;
-    
-    // 조명 관련 uniform 변수들
-    uniform vec4 uLightPosition;
-    uniform vec4 uAmbientProduct;
-    uniform vec4 uDiffuseProduct;
-    uniform vec4 uSpecularProduct;
-    uniform float uShininess;
-    
-    // 카메라 위치 (월드 공간)
-    uniform vec3 uCameraPosition;
-    
-    // 감쇠 계수
-    uniform float uAttenuationA;
-    uniform float uAttenuationB;
-    uniform float uAttenuationC;
-    
-    // Texture sampler
-    uniform sampler2D texture;
-    
-    void main() {
-        vec3 N = normalize(fWorldNormal);
-        vec3 L;
-        float attenuation = 1.0;
-        
-        // Point light vs Directional light
-        if (uLightPosition.w == 1.0) {
-            // Point light
-            vec3 lightVec = uLightPosition.xyz - fWorldPosition;
-            L = normalize(lightVec);
-            float distance = length(lightVec);
-            attenuation = 1.0 / (uAttenuationA + uAttenuationB * distance + uAttenuationC * distance * distance);
-        } else {
-            // Directional light
-            L = normalize(uLightPosition.xyz);
-        }
-        
-        // View vector (월드 공간에서 카메라를 향하는 벡터)
-        vec3 V = normalize(uCameraPosition - fWorldPosition);
-        
-        // Half vector (Blinn-Phong)
-        vec3 H = normalize(L + V);
-        
-        // Ambient
-        vec4 ambient = uAmbientProduct;
-        
-        // Diffuse
-        float Kd = max(dot(L, N), 0.0);
-        vec4 diffuse = Kd * uDiffuseProduct;
-        
-        // Specular (Blinn-Phong)
-        float Ks = 0.0;
-        if (Kd > 0.0) {
-            Ks = pow(max(dot(N, H), 0.0), uShininess);
-        }
-        vec4 specular = Ks * uSpecularProduct;
-        
-        // Texture color 샘플링
-        vec4 textureColor = texture2D(texture, fTexCoord);
-        
-        // 최종 색상 = 재질 색상과 조명의 조합에 텍스처 적용
-        vec4 lightColor = ambient + attenuation * (diffuse + specular);
-        gl_FragColor = fColor * lightColor * textureColor;
-        gl_FragColor.a = 1.0;
-    }
-    </script>
-    
-    <!-- WebGL 유틸리티 스크립트 -->
-    <script type="text/javascript" src="Common/webgl-utils.js"></script>
-    <script type="text/javascript" src="Common/initShaders.js"></script>
-    <script type="text/javascript" src="Common/MV.js"></script>
-    
-    <!-- 모듈화된 JavaScript 파일들 -->
-    <script type="text/javascript" src="js/camera.js"></script>
-    <script type="text/javascript" src="js/lighting.js"></script>
-    <script type="text/javascript" src="js/model.js"></script>
-    <script type="text/javascript" src="js/poseController.js"></script>
-    <script type="text/javascript" src="js/poseStorage.js"></script>
-    <script type="text/javascript" src="js/animation.js"></script>
-    <script type="text/javascript" src="athletics.js"></script>
-</head>
-<body>
-    <div class="container">
-        <!-- 왼쪽 패널: 캔버스 -->
-        <div class="left-panel">
-            <h2>Athletics (육상)</h2>
-            <div class="canvas-container">
-                <canvas id="gl-canvas" width="600" height="600">
-                    이 브라우저는 HTML5 Canvas를 지원하지 않습니다.
-                </canvas>
-            </div>
-            <div style="margin-top: 10px; font-size: 12px; color: #666; text-align: center;">
-                <strong>카메라 조작법:</strong><br>
-                • 마우스 드래그: 카메라 뷰 변경 (orbit 방식)<br>
-                • Ctrl + 드래그: Z축 회전 (카메라 롤링)<br>
-                • 마우스 휠: 줌 인/아웃<br>
-                • 키보드 1~6: 정면/후면/왼쪽/오른쪽/위쪽/아래쪽 뷰<br>
-                • 오른쪽 패널 슬라이더로 Eye, At, Up 벡터 정밀 조정 가능
-            </div>
-        </div>
-        
-        <!-- 오른쪽 패널: 컨트롤 -->
-        <div class="right-panel">
-            <h2>컨트롤</h2>
-            
-            <!-- 포즈 기본 컨트롤 -->
-            <div class="accordion-section">
-                <div class="accordion-header" data-target="pose-control">
-                    <span class="accordion-title">📋 포즈 전환</span>
-                    <span class="accordion-arrow">▼</span>
-                </div>
-                <div class="accordion-content active" id="pose-control">
-            <div class="controls">
-                <button id="apply-running-pose">달리기 포즈 적용</button>
-                <button id="reset-all-pose">전체 초기화</button>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- 관절 선택 및 제어 -->
-            <div class="accordion-section">
-                <div class="accordion-header" data-target="joint-control">
-                    <span class="accordion-title">🦴 관절 제어</span>
-                    <span class="accordion-arrow">▼</span>
-                </div>
-                <div class="accordion-content active" id="joint-control">
-                    <!-- 관절 선택 -->
-                    <div class="subsection-title">관절 선택</div>
-                    <div class="controls">
-                        <select id="joint-selector">
-                            <option value="">관절을 선택하세요</option>
-                            <option value="TORSO">몸통/허리</option>
-                            <option value="HEAD">머리/목</option>
-                            <option value="LEFT_UPPER_ARM">왼쪽 어깨</option>
-                            <option value="RIGHT_UPPER_ARM">오른쪽 어깨</option>
-                            <option value="LEFT_LOWER_ARM">왼쪽 팔꿈치</option>
-                            <option value="RIGHT_LOWER_ARM">오른쪽 팔꿈치</option>
-                            <option value="LEFT_HAND">왼쪽 손목</option>
-                            <option value="RIGHT_HAND">오른쪽 손목</option>
-                            <option value="LEFT_UPPER_LEG">왼쪽 엉덩이</option>
-                            <option value="RIGHT_UPPER_LEG">오른쪽 엉덩이</option>
-                            <option value="LEFT_LOWER_LEG">왼쪽 무릎</option>
-                            <option value="RIGHT_LOWER_LEG">오른쪽 무릎</option>
-                            <option value="LEFT_FOOT">왼쪽 발목</option>
-                            <option value="RIGHT_FOOT">오른쪽 발목</option>
-                        </select>
-                    </div>
-                    
-                    <!-- 관절별 회전 컨트롤 -->
-                    <div class="subsection-title">관절 회전 (<span id="selected-joint-name">관절을 선택하세요</span>)</div>
-                    <div class="slider-controls" id="joint-rotation-controls" style="display: none;">
-                        <div class="slider-container" id="joint-axis-x" style="display: none;">
-                            <div class="slider-label">
-                                <span id="joint-axis-x-label">회전 X</span>
-                                <span id="joint-rotate-x-value">0°</span>
-                            </div>
-                            <input type="range" id="joint-rotate-x" min="-180" max="180" value="0">
-                        </div>
-                        
-                        <div class="slider-container" id="joint-axis-y" style="display: none;">
-                            <div class="slider-label">
-                                <span id="joint-axis-y-label">회전 Y</span>
-                                <span id="joint-rotate-y-value">0°</span>
-                            </div>
-                            <input type="range" id="joint-rotate-y" min="-180" max="180" value="0">
-                        </div>
-                        
-                        <div class="slider-container" id="joint-axis-z" style="display: none;">
-                            <div class="slider-label">
-                                <span id="joint-axis-z-label">회전 Z</span>
-                                <span id="joint-rotate-z-value">0°</span>
-                            </div>
-                            <input type="range" id="joint-rotate-z" min="-180" max="180" value="0">
-                        </div>
-                        
-                        <div class="controls">
-                            <button id="reset-joint-rotation">관절 초기화</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- 부착물 관리 -->
-            <div class="accordion-section">
-                <div class="accordion-header" data-target="attachment-control">
-                    <span class="accordion-title">🔗 부착물 관리</span>
-                    <span class="accordion-arrow">▼</span>
-                </div>
-                <div class="accordion-content" id="attachment-control">
-                    <!-- 부착물 추가 -->
-                    <div class="subsection-title">부착물 추가</div>
-                    <div class="controls">
-                        <select id="attachment-parent-selector">
-                            <option value="">부착할 부위를 선택하세요</option>
-                            <option value="LEFT_HAND">왼손</option>
-                            <option value="RIGHT_HAND">오른손</option>
-                            <option value="LEFT_FOOT">왼발</option>
-                            <option value="RIGHT_FOOT">오른발</option>
-                            <option value="HEAD">머리</option>
-                            <option value="TORSO">몸통</option>
-                            <!-- 부착물들도 동적으로 여기에 추가됩니다 -->
-                        </select>
-                        <div style="display: flex; gap: 10px; margin-top: 10px;">
-                            <button id="add-ball-attachment">공 추가</button>
-                            <button id="add-stick-attachment">막대기 추가</button>
-                        </div>
-                    </div>
-                    
-                    <!-- 부착물 목록 및 제어 -->
-                    <div class="subsection-title">부착물 목록</div>
-                    <div class="controls">
-                        <select id="attachment-selector">
-                            <option value="">부착물이 없습니다</option>
-                        </select>
-                        <div style="display: flex; gap: 10px; margin-top: 10px;">
-                            <button id="remove-attachment" disabled>선택 제거</button>
-                            <button id="remove-all-attachments">전체 제거</button>
-                        </div>
-                    </div>
-                    
-                    <!-- 부착물 위치 컨트롤 -->
-                    <div class="subsection-title">부착물 위치 (<span id="selected-attachment-name">부착물을 선택하세요</span>)</div>
-                    <div class="slider-controls" id="attachment-position-controls" style="display: none;">
-                        <div class="slider-container">
-                            <div class="slider-label">
-                                <span>위치 X</span>
-                                <span id="attachment-position-x-value">0.0</span>
-                            </div>
-                            <input type="range" id="attachment-position-x" min="-0.5" max="0.5" value="0" step="0.01">
-                        </div>
-                        
-                        <div class="slider-container">
-                            <div class="slider-label">
-                                <span>위치 Y</span>
-                                <span id="attachment-position-y-value">-0.1</span>
-                            </div>
-                            <input type="range" id="attachment-position-y" min="-0.5" max="0.5" value="-0.1" step="0.01">
-                        </div>
-                        
-                        <div class="slider-container">
-                            <div class="slider-label">
-                                <span>위치 Z</span>
-                                <span id="attachment-position-z-value">0.0</span>
-                            </div>
-                            <input type="range" id="attachment-position-z" min="-0.5" max="0.5" value="0" step="0.01">
-                        </div>
-                    </div>
-                    
-                    <!-- 부착물 회전 컨트롤 -->
-                    <div class="subsection-title">부착물 회전</div>
-                    <div class="slider-controls" id="attachment-rotation-controls" style="display: none;">
-                        <div class="slider-container">
-                            <div class="slider-label">
-                                <span>회전 X</span>
-                                <span id="attachment-rotate-x-value">0°</span>
-                            </div>
-                            <input type="range" id="attachment-rotate-x" min="-180" max="180" value="0">
-                        </div>
-                        
-                        <div class="slider-container">
-                            <div class="slider-label">
-                                <span>회전 Y</span>
-                                <span id="attachment-rotate-y-value">0°</span>
-                            </div>
-                            <input type="range" id="attachment-rotate-y" min="-180" max="180" value="0">
-                        </div>
-                        
-                        <div class="slider-container">
-                            <div class="slider-label">
-                                <span>회전 Z</span>
-                                <span id="attachment-rotate-z-value">0°</span>
-                            </div>
-                            <input type="range" id="attachment-rotate-z" min="-180" max="180" value="0">
-                        </div>
-                        
-                        <div class="controls">
-                            <button id="reset-attachment-transform">위치/회전 초기화</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- 포즈 저장/관리 -->
-            <div class="accordion-section">
-                <div class="accordion-header" data-target="pose-management">
-                    <span class="accordion-title">💾 포즈 관리</span>
-                    <span class="accordion-arrow">▼</span>
-                </div>
-                <div class="accordion-content" id="pose-management">
-                    <div class="controls">
-                        <div class="pose-save-container">
-                            <input type="text" id="pose-name" placeholder="포즈 이름 입력" maxlength="20">
-                            <button id="save-pose">포즈 저장</button>
-                        </div>
-                        <div class="pose-list-container">
-                            <select id="saved-poses">
-                                <option value="">저장된 포즈 없음</option>
-                            </select>
-                            <div class="pose-buttons">
-                                <button id="load-pose" disabled>불러오기</button>
-                                <button id="delete-pose" disabled>삭제</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- 애니메이션 -->
-            <div class="accordion-section">
-                <div class="accordion-header" data-target="animation-control">
-                    <span class="accordion-title">🎬 애니메이션</span>
-                    <span class="accordion-arrow">▼</span>
-                </div>
-                <div class="accordion-content" id="animation-control">
-                    <div class="controls">
-                        <div class="animation-controls">
-                            <button id="add-to-animation" disabled>키프레임 추가</button>
-                            <button id="clear-animation">애니메이션 클리어</button>
-                        </div>
-                        <div class="animation-timeline">
-                            <div class="timeline-label">타임라인 (<span id="keyframe-count">0</span>개 키프레임)</div>
-                            <div id="timeline-container">
-                                <div id="timeline-bar"></div>
-                            </div>
-                            <div style="font-size: 11px; color: #666; margin-top: 5px; text-align: center;">
-                                <strong>키프레임 편집:</strong> 좌클릭-이동 | 우클릭-삭제 | 드래그-시간조절 | <span style="color: #dc3545;">🏁 끝 키프레임 드래그-전체 길이 조절</span>
-                            </div>
-                        </div>
-                        <div class="animation-playback">
-                            <button id="play-animation" disabled>재생</button>
-                            <button id="stop-animation" disabled>정지</button>
-                            <div class="slider-container">
-                                <div class="slider-label">
-                                    <span>재생 속도</span>
-                                    <span id="animation-speed-value">1.0x</span>
-                                </div>
-                                <input type="range" id="animation-speed" min="0.1" max="2.0" value="1.0" step="0.1">
-                            </div>
-                        </div>
-                    </div>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>2020 Tokyo Olympics Pictogram Model</title>
+        <link rel="stylesheet" href="style.css" />
+
+        <script id="vertex-shader" type="x-shader/x-vertex">
+            attribute vec4 vPosition;
+            attribute vec4 vColor;
+            attribute vec3 vNormal;
+            attribute vec2 vTexCoord;
+
+            varying vec4 fColor;
+            varying vec3 fWorldPosition;
+            varying vec3 fWorldNormal;
+            varying vec2 fTexCoord;
+
+            uniform mat4 uModelMatrix;
+            uniform mat4 uViewMatrix;
+            uniform mat4 uProjectionMatrix;
+            uniform mat3 uNormalMatrix;
+
+            void main() {
+                vec4 worldPosition = uModelMatrix * vPosition;
+                fWorldPosition = worldPosition.xyz;
+
+                vec4 viewPosition = uViewMatrix * worldPosition;
+                gl_Position = uProjectionMatrix * viewPosition;
+                fWorldNormal = normalize(uNormalMatrix * vNormal);
+                fColor = vColor;
+                fTexCoord = vTexCoord;
+            }
+        </script>
+
+        <script id="fragment-shader" type="x-shader/x-fragment">
+            precision mediump float;
+
+            varying vec4 fColor;
+            varying vec3 fWorldPosition;
+            varying vec3 fWorldNormal;
+            varying vec2 fTexCoord;
+
+            uniform vec4 uLightPosition;
+            uniform vec4 uAmbientProduct;
+            uniform vec4 uDiffuseProduct;
+            uniform vec4 uSpecularProduct;
+            uniform float uShininess;
+
+            uniform vec3 uCameraPosition;
+
+            uniform float uAttenuationA;
+            uniform float uAttenuationB;
+            uniform float uAttenuationC;
+
+            uniform sampler2D texture;
+
+            void main() {
+                vec3 N = normalize(fWorldNormal);
+                vec3 L;
+                float attenuation = 1.0;
+
+                if (uLightPosition.w == 1.0) {
+                    vec3 lightVec = uLightPosition.xyz - fWorldPosition;
+                    L = normalize(lightVec);
+                    float distance = length(lightVec);
+                    attenuation = 1.0 / (uAttenuationA + uAttenuationB * distance + uAttenuationC * distance * distance);
+                } else {
+                    L = normalize(uLightPosition.xyz);
+                }
+
+                vec3 V = normalize(uCameraPosition - fWorldPosition);
+                vec3 H = normalize(L + V);
+                vec4 ambient = uAmbientProduct;
+                float Kd = max(dot(L, N), 0.0);
+                vec4 diffuse = Kd * uDiffuseProduct;
+                float Ks = 0.0;
+                if (Kd > 0.0) {
+                    Ks = pow(max(dot(N, H), 0.0), uShininess);
+                }
+
+                vec4 specular = Ks * uSpecularProduct;
+                vec4 textureColor = texture2D(texture, fTexCoord);
+                vec4 lightColor = ambient + attenuation * (diffuse + specular);
+                gl_FragColor = fColor * lightColor * textureColor;
+                gl_FragColor.a = 1.0;
+            }
+        </script>
+
+        <script type="text/javascript" src="Common/webgl-utils.js"></script>
+        <script type="text/javascript" src="Common/initShaders.js"></script>
+        <script type="text/javascript" src="Common/MV.js"></script>
+
+        <script type="text/javascript" src="js/camera.js"></script>
+        <script type="text/javascript" src="js/lighting.js"></script>
+        <script type="text/javascript" src="js/model.js"></script>
+        <script type="text/javascript" src="js/poseController.js"></script>
+        <script type="text/javascript" src="js/poseStorage.js"></script>
+        <script type="text/javascript" src="js/animation.js"></script>
+        <script type="text/javascript" src="athletics.js"></script>
+    </head>
+    <body>
+        <div class="container">
+            <div class="left-panel">
+                <h2>Tokyo Olympics Pictogram Model</h2>
+                <div class="canvas-container">
+                    <canvas id="gl-canvas" width="600" height="600"></canvas>
                 </div>
             </div>
 
-            <!-- 카메라 뷰 조작 -->
-            <div class="accordion-section">
-                <div class="accordion-header" data-target="view-control">
-                    <span class="accordion-title">📷 카메라 뷰 조작</span>
-                    <span class="accordion-arrow">▼</span>
-                </div>
-                <div class="accordion-content" id="view-control">
-                    <!-- 미리 정의된 뷰 -->
-                    <div class="subsection-title">미리 정의된 뷰</div>
-                    <div class="controls">
-                        <button id="view-front">정면 뷰</button>
-                        <button id="view-back">후면 뷰</button>
-                        <button id="view-left">왼쪽 뷰</button>
-                        <button id="view-right">오른쪽 뷰</button>
-                        <button id="view-top">위쪽 뷰</button>
-                        <button id="view-bottom">아래쪽 뷰</button>
+            <div class="right-panel">
+                <div class="accordion-section">
+                    <div class="accordion-header" data-target="pose-control">
+                        <span class="accordion-title">Switch Pose</span>
+                        <span class="accordion-arrow">▼</span>
                     </div>
-                    
-                    <!-- Eye 위치 (카메라 위치) -->
-                    <div class="subsection-title">Eye (카메라 위치)</div>
-                    <div class="slider-controls">
-                        <div class="slider-container">
-                            <div class="slider-label">
-                                <span>Eye X</span>
-                                <span id="eye-x-value">0.0</span>
-                            </div>
-                            <input type="range" id="eye-x" min="-5" max="5" value="0" step="0.1">
+                    <div class="accordion-content active" id="pose-control">
+                        <div class="controls">
+                            <button id="apply-running-pose">
+                                Running Motion
+                            </button>
+                            <button id="reset-all-pose">Initial Pose</button>
                         </div>
-                        
-                        <div class="slider-container">
-                            <div class="slider-label">
-                                <span>Eye Y</span>
-                                <span id="eye-y-value">0.0</span>
-                            </div>
-                            <input type="range" id="eye-y" min="-5" max="5" value="0" step="0.1">
-                        </div>
-                        
-                        <div class="slider-container">
-                            <div class="slider-label">
-                                <span>Eye Z</span>
-                                <span id="eye-z-value">-3.0</span>
-                            </div>
-                            <input type="range" id="eye-z" min="-5" max="5" value="-3" step="0.1">
-                        </div>
-                    </div>
-                    
-                    <!-- At 위치 (바라보는 점) -->
-                    <div class="subsection-title">At (바라보는 점)</div>
-                    <div class="slider-controls">
-                        <div class="slider-container">
-                            <div class="slider-label">
-                                <span>At X</span>
-                                <span id="at-x-value">0.0</span>
-                            </div>
-                            <input type="range" id="at-x" min="-5" max="5" value="0" step="0.1">
-                        </div>
-                        
-                        <div class="slider-container">
-                            <div class="slider-label">
-                                <span>At Y</span>
-                                <span id="at-y-value">0.0</span>
-                            </div>
-                            <input type="range" id="at-y" min="-5" max="5" value="0" step="0.1">
-                        </div>
-                        
-                        <div class="slider-container">
-                            <div class="slider-label">
-                                <span>At Z</span>
-                                <span id="at-z-value">0.0</span>
-                            </div>
-                            <input type="range" id="at-z" min="-5" max="5" value="0" step="0.1">
-                        </div>
-                    </div>
-                    
-                    <!-- Up 벡터 (업 방향) -->
-                    <div class="subsection-title">Up (업 방향)</div>
-                    <div class="slider-controls">
-                        <div class="slider-container">
-                            <div class="slider-label">
-                                <span>Up X</span>
-                                <span id="up-x-value">0.0</span>
-                            </div>
-                            <input type="range" id="up-x" min="-1" max="1" value="0" step="0.01">
-                        </div>
-                        
-                        <div class="slider-container">
-                            <div class="slider-label">
-                                <span>Up Y</span>
-                                <span id="up-y-value">1.0</span>
-                            </div>
-                            <input type="range" id="up-y" min="-1" max="1" value="1" step="0.01">
-                        </div>
-                        
-                        <div class="slider-container">
-                            <div class="slider-label">
-                                <span>Up Z</span>
-                                <span id="up-z-value">0.0</span>
-                            </div>
-                            <input type="range" id="up-z" min="-1" max="1" value="0" step="0.01">
-                        </div>
-                    </div>
-                    
-                    <!-- 줌/스케일 -->
-                    <div class="subsection-title">줌</div>
-                    <div class="slider-controls">
-                        <div class="slider-container">
-                            <div class="slider-label">
-                                <span>줌</span>
-                                <span id="zoom-value">1.0x</span>
-                            </div>
-                            <input type="range" id="zoom" min="0.1" max="3.0" value="1.0" step="0.1">
-                        </div>
-                    </div>
-                    
-                    <div class="controls">
-                        <button id="reset-camera">카메라 초기화</button>
-                        <button id="reset-button">전체 초기화</button>
                     </div>
                 </div>
-            </div>
-            
-            <!-- 조명 설정 -->
-            <div class="accordion-section">
-                <div class="accordion-header" data-target="lighting-control">
-                    <span class="accordion-title">💡 조명 설정</span>
-                    <span class="accordion-arrow">▼</span>
+
+                <div class="accordion-section">
+                    <div class="accordion-header" data-target="joint-control">
+                        <span class="accordion-title">Joint Control</span>
+                        <span class="accordion-arrow">▼</span>
+                    </div>
+                    <div class="accordion-content active" id="joint-control">
+                        <div class="subsection-title">Select Joint</div>
+                        <div class="controls">
+                            <select id="joint-selector">
+                                <option value="">Select Joint</option>
+                                <option value="TORSO">Torso</option>
+                                <option value="HEAD">Head</option>
+                                <option value="LEFT_UPPER_ARM">
+                                    Left Upper Arm
+                                </option>
+                                <option value="RIGHT_UPPER_ARM">
+                                    Right Upper Arm
+                                </option>
+                                <option value="LEFT_LOWER_ARM">
+                                    Left Lower Arm
+                                </option>
+                                <option value="RIGHT_LOWER_ARM">
+                                    Right Lower Arm
+                                </option>
+                                <option value="LEFT_HAND">Left Hand</option>
+                                <option value="RIGHT_HAND">Right Hand</option>
+                                <option value="LEFT_UPPER_LEG">
+                                    Left Upper Leg
+                                </option>
+                                <option value="RIGHT_UPPER_LEG">
+                                    Right Upper Leg
+                                </option>
+                                <option value="LEFT_LOWER_LEG">
+                                    Left Lower Leg
+                                </option>
+                                <option value="RIGHT_LOWER_LEG">
+                                    Right Lower Leg
+                                </option>
+                                <option value="LEFT_FOOT">Left Foot</option>
+                                <option value="RIGHT_FOOT">Right Foot</option>
+                            </select>
+                        </div>
+
+                        <div class="subsection-title">
+                            Joint Rotation (<span id="selected-joint-name"
+                                >Select a joint</span
+                            >)
+                        </div>
+                        <div
+                            class="slider-controls"
+                            id="joint-rotation-controls"
+                            style="display: none"
+                        >
+                            <div
+                                class="slider-container"
+                                id="joint-axis-x"
+                                style="display: none"
+                            >
+                                <div class="slider-label">
+                                    <span id="joint-axis-x-label"
+                                        >Rotation X</span
+                                    >
+                                    <span id="joint-rotate-x-value">0°</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    id="joint-rotate-x"
+                                    min="-180"
+                                    max="180"
+                                    value="0"
+                                />
+                            </div>
+
+                            <div
+                                class="slider-container"
+                                id="joint-axis-y"
+                                style="display: none"
+                            >
+                                <div class="slider-label">
+                                    <span id="joint-axis-y-label"
+                                        >Rotation Y</span
+                                    >
+                                    <span id="joint-rotate-y-value">0°</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    id="joint-rotate-y"
+                                    min="-180"
+                                    max="180"
+                                    value="0"
+                                />
+                            </div>
+
+                            <div
+                                class="slider-container"
+                                id="joint-axis-z"
+                                style="display: none"
+                            >
+                                <div class="slider-label">
+                                    <span id="joint-axis-z-label"
+                                        >Rotation Z</span
+                                    >
+                                    <span id="joint-rotate-z-value">0°</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    id="joint-rotate-z"
+                                    min="-180"
+                                    max="180"
+                                    value="0"
+                                />
+                            </div>
+
+                            <div class="controls">
+                                <button id="reset-joint-rotation">
+                                    Reset Joint
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="accordion-content" id="lighting-control">
-                    <!-- 조명 타입 -->
-                    <div class="subsection-title">조명 타입</div>
-                    <div class="controls">
-                        <button id="point-light" class="active">점 광원</button>
-                        <button id="directional-light">방향성 광원</button>
+
+                <div class="accordion-section">
+                    <div
+                        class="accordion-header"
+                        data-target="attachment-control"
+                    >
+                        <span class="accordion-title"
+                            >Attachment Management</span
+                        >
+                        <span class="accordion-arrow">▼</span>
                     </div>
-                    
-                    <!-- 조명 위치/방향 -->
-                    <div class="subsection-title">조명 위치/방향</div>
-                    <div class="slider-controls">
-                        <div class="slider-container">
-                            <div class="slider-label">
-                                <span>Light X</span>
-                                <span id="light-x-value">0.0</span>
+                    <div class="accordion-content" id="attachment-control">
+                        <div class="subsection-title">Add Attachment</div>
+                        <div class="controls">
+                            <select id="attachment-parent-selector">
+                                <option value="">
+                                    Select a part to attach
+                                </option>
+                                <option value="LEFT_HAND">Left Hand</option>
+                                <option value="RIGHT_HAND">Right Hand</option>
+                                <option value="LEFT_FOOT">Left Foot</option>
+                                <option value="RIGHT_FOOT">Right Foot</option>
+                                <option value="HEAD">Head</option>
+                                <option value="TORSO">Torso</option>
+                            </select>
+                            <div
+                                style="
+                                    display: flex;
+                                    gap: 10px;
+                                    margin-top: 10px;
+                                "
+                            >
+                                <button id="add-ball-attachment">
+                                    Add Ball
+                                </button>
+                                <button id="add-stick-attachment">
+                                    Add Stick
+                                </button>
                             </div>
-                            <input type="range" id="light-x" min="-5" max="5" value="0" step="0.1">
                         </div>
-                        
-                        <div class="slider-container">
-                            <div class="slider-label">
-                                <span>Light Y</span>
-                                <span id="light-y-value">0.0</span>
+
+                        <div class="subsection-title">Attachment List</div>
+                        <div class="controls">
+                            <select id="attachment-selector">
+                                <option value="">No attachments</option>
+                            </select>
+                            <div
+                                style="
+                                    display: flex;
+                                    gap: 10px;
+                                    margin-top: 10px;
+                                "
+                            >
+                                <button id="remove-attachment" disabled>
+                                    Remove Selected
+                                </button>
+                                <button id="remove-all-attachments">
+                                    Remove All
+                                </button>
                             </div>
-                            <input type="range" id="light-y" min="-5" max="5" value="0" step="0.1">
                         </div>
-                        
-                        <div class="slider-container">
-                            <div class="slider-label">
-                                <span>Light Z</span>
-                                <span id="light-z-value">-2.0</span>
+
+                        <div class="subsection-title">
+                            Attachment Position (<span
+                                id="selected-attachment-name"
+                                >Select an attachment</span
+                            >)
+                        </div>
+                        <div
+                            class="slider-controls"
+                            id="attachment-position-controls"
+                            style="display: none"
+                        >
+                            <div class="slider-container">
+                                <div class="slider-label">
+                                    <span>Position X</span>
+                                    <span id="attachment-position-x-value"
+                                        >0.0</span
+                                    >
+                                </div>
+                                <input
+                                    type="range"
+                                    id="attachment-position-x"
+                                    min="-0.5"
+                                    max="0.5"
+                                    value="0"
+                                    step="0.01"
+                                />
                             </div>
-                            <input type="range" id="light-z" min="-5" max="5" value="-2" step="0.1">
-                        </div>
-                    </div>
-                    
-                    <!-- 조명 강도 -->
-                    <div class="subsection-title">조명 강도</div>
-                    <div class="slider-controls">
-                        <div class="slider-container">
-                            <div class="slider-label">
-                                <span>Ambient</span>
-                                <span id="ambient-value">0.2</span>
+
+                            <div class="slider-container">
+                                <div class="slider-label">
+                                    <span>Position Y</span>
+                                    <span id="attachment-position-y-value"
+                                        >-0.1</span
+                                    >
+                                </div>
+                                <input
+                                    type="range"
+                                    id="attachment-position-y"
+                                    min="-0.5"
+                                    max="0.5"
+                                    value="-0.1"
+                                    step="0.01"
+                                />
                             </div>
-                            <input type="range" id="ambient-intensity" min="0" max="1" value="0.2" step="0.01">
-                        </div>
-                        
-                        <div class="slider-container">
-                            <div class="slider-label">
-                                <span>Diffuse</span>
-                                <span id="diffuse-value">0.8</span>
+
+                            <div class="slider-container">
+                                <div class="slider-label">
+                                    <span>Position Z</span>
+                                    <span id="attachment-position-z-value"
+                                        >0.0</span
+                                    >
+                                </div>
+                                <input
+                                    type="range"
+                                    id="attachment-position-z"
+                                    min="-0.5"
+                                    max="0.5"
+                                    value="0"
+                                    step="0.01"
+                                />
                             </div>
-                            <input type="range" id="diffuse-intensity" min="0" max="1" value="0.8" step="0.01">
                         </div>
-                        
-                        <div class="slider-container">
-                            <div class="slider-label">
-                                <span>Specular</span>
-                                <span id="specular-value">1.0</span>
+
+                        <div class="subsection-title">Attachment Rotation</div>
+                        <div
+                            class="slider-controls"
+                            id="attachment-rotation-controls"
+                            style="display: none"
+                        >
+                            <div class="slider-container">
+                                <div class="slider-label">
+                                    <span>Rotation X</span>
+                                    <span id="attachment-rotate-x-value"
+                                        >0°</span
+                                    >
+                                </div>
+                                <input
+                                    type="range"
+                                    id="attachment-rotate-x"
+                                    min="-180"
+                                    max="180"
+                                    value="0"
+                                />
                             </div>
-                            <input type="range" id="specular-intensity" min="0" max="1" value="1.0" step="0.01">
-                        </div>
-                        
-                        <div class="slider-container">
-                            <div class="slider-label">
-                                <span>Shininess</span>
-                                <span id="shininess-value">20</span>
+
+                            <div class="slider-container">
+                                <div class="slider-label">
+                                    <span>Rotation Y</span>
+                                    <span id="attachment-rotate-y-value"
+                                        >0°</span
+                                    >
+                                </div>
+                                <input
+                                    type="range"
+                                    id="attachment-rotate-y"
+                                    min="-180"
+                                    max="180"
+                                    value="0"
+                                />
                             </div>
-                            <input type="range" id="shininess" min="1" max="100" value="20" step="1">
+
+                            <div class="slider-container">
+                                <div class="slider-label">
+                                    <span>Rotation Z</span>
+                                    <span id="attachment-rotate-z-value"
+                                        >0°</span
+                                    >
+                                </div>
+                                <input
+                                    type="range"
+                                    id="attachment-rotate-z"
+                                    min="-180"
+                                    max="180"
+                                    value="0"
+                                />
+                            </div>
+
+                            <div class="controls">
+                                <button id="reset-attachment-transform">
+                                    Reset Position/Rotation
+                                </button>
+                            </div>
                         </div>
-                    </div>
-                    
-                    <div class="controls">
-                        <button id="reset-lighting">조명 초기화</button>
                     </div>
                 </div>
-            </div>
-            
-            <div id="debug-info" style="display: none;">
-                디버그 정보가 여기에 표시됩니다.
+
+                <div class="accordion-section">
+                    <div class="accordion-header" data-target="pose-management">
+                        <span class="accordion-title">Pose Management</span>
+                        <span class="accordion-arrow">▼</span>
+                    </div>
+                    <div class="accordion-content" id="pose-management">
+                        <div class="controls">
+                            <div class="pose-save-container">
+                                <input
+                                    type="text"
+                                    id="pose-name"
+                                    placeholder="Enter pose name"
+                                    maxlength="20"
+                                />
+                                <button id="save-pose">Save Pose</button>
+                            </div>
+                            <div class="pose-list-container">
+                                <select id="saved-poses">
+                                    <option value="">No saved poses</option>
+                                </select>
+                                <div class="pose-buttons">
+                                    <button id="load-pose" disabled>
+                                        Load Pose
+                                    </button>
+                                    <button id="delete-pose" disabled>
+                                        Delete Pose
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-section">
+                    <div
+                        class="accordion-header"
+                        data-target="animation-control"
+                    >
+                        <span class="accordion-title">Animation</span>
+                        <span class="accordion-arrow">▼</span>
+                    </div>
+                    <div class="accordion-content" id="animation-control">
+                        <div class="controls">
+                            <div class="animation-controls">
+                                <button id="add-to-animation" disabled>
+                                    Add Keyframe
+                                </button>
+                                <button id="clear-animation">
+                                    Clear Animation
+                                </button>
+                            </div>
+                            <div class="animation-timeline">
+                                <div class="timeline-label">
+                                    Timeline (<span id="keyframe-count">0</span>
+                                    keyframes)
+                                </div>
+                                <div id="timeline-container">
+                                    <div id="timeline-bar"></div>
+                                </div>
+                                <div
+                                    style="
+                                        font-size: 11px;
+                                        color: #666;
+                                        margin-top: 5px;
+                                        text-align: center;
+                                    "
+                                >
+                                </div>
+                            </div>
+                            <div class="animation-playback">
+                                <button id="play-animation" disabled>
+                                    Play
+                                </button>
+                                <button id="stop-animation" disabled>
+                                    Stop
+                                </button>
+                                <div class="slider-container">
+                                    <div class="slider-label">
+                                        <span>Playback Speed</span>
+                                        <span id="animation-speed-value"
+                                            >1.0x</span
+                                        >
+                                    </div>
+                                    <input
+                                        type="range"
+                                        id="animation-speed"
+                                        min="0.1"
+                                        max="2.0"
+                                        value="1.0"
+                                        step="0.1"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-section">
+                    <div class="accordion-header" data-target="view-control">
+                        <span class="accordion-title">Camera View Control</span>
+                        <span class="accordion-arrow">▼</span>
+                    </div>
+                    <div class="accordion-content" id="view-control">
+                        <div class="subsection-title">Pre-defined Views</div>
+                        <div class="controls">
+                            <button id="view-front">Front View</button>
+                            <button id="view-back">Back View</button>
+                        </div>
+
+                        <div class="subsection-title">Eye</div>
+                        <div class="slider-controls">
+                            <div class="slider-container">
+                                <div class="slider-label">
+                                    <span>Eye X</span>
+                                    <span id="eye-x-value">0.0</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    id="eye-x"
+                                    min="-5"
+                                    max="5"
+                                    value="0"
+                                    step="0.1"
+                                />
+                            </div>
+
+                            <div class="slider-container">
+                                <div class="slider-label">
+                                    <span>Eye Y</span>
+                                    <span id="eye-y-value">0.0</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    id="eye-y"
+                                    min="-5"
+                                    max="5"
+                                    value="0"
+                                    step="0.1"
+                                />
+                            </div>
+
+                            <div class="slider-container">
+                                <div class="slider-label">
+                                    <span>Eye Z</span>
+                                    <span id="eye-z-value">-3.0</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    id="eye-z"
+                                    min="-5"
+                                    max="5"
+                                    value="-3"
+                                    step="0.1"
+                                />
+                            </div>
+                        </div>
+
+                        <div class="subsection-title">At</div>
+                        <div class="slider-controls">
+                            <div class="slider-container">
+                                <div class="slider-label">
+                                    <span>At X</span>
+                                    <span id="at-x-value">0.0</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    id="at-x"
+                                    min="-5"
+                                    max="5"
+                                    value="0"
+                                    step="0.1"
+                                />
+                            </div>
+
+                            <div class="slider-container">
+                                <div class="slider-label">
+                                    <span>At Y</span>
+                                    <span id="at-y-value">0.0</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    id="at-y"
+                                    min="-5"
+                                    max="5"
+                                    value="0"
+                                    step="0.1"
+                                />
+                            </div>
+
+                            <div class="slider-container">
+                                <div class="slider-label">
+                                    <span>At Z</span>
+                                    <span id="at-z-value">0.0</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    id="at-z"
+                                    min="-5"
+                                    max="5"
+                                    value="0"
+                                    step="0.1"
+                                />
+                            </div>
+                        </div>
+
+                        <div class="subsection-title">Up</div>
+                        <div class="slider-controls">
+                            <div class="slider-container">
+                                <div class="slider-label">
+                                    <span>Up X</span>
+                                    <span id="up-x-value">0.0</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    id="up-x"
+                                    min="-1"
+                                    max="1"
+                                    value="0"
+                                    step="0.01"
+                                />
+                            </div>
+
+                            <div class="slider-container">
+                                <div class="slider-label">
+                                    <span>Up Y</span>
+                                    <span id="up-y-value">1.0</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    id="up-y"
+                                    min="-1"
+                                    max="1"
+                                    value="1"
+                                    step="0.01"
+                                />
+                            </div>
+
+                            <div class="slider-container">
+                                <div class="slider-label">
+                                    <span>Up Z</span>
+                                    <span id="up-z-value">0.0</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    id="up-z"
+                                    min="-1"
+                                    max="1"
+                                    value="0"
+                                    step="0.01"
+                                />
+                            </div>
+                        </div>
+
+                        <div class="subsection-title">Zoom</div>
+                        <div class="slider-controls">
+                            <div class="slider-container">
+                                <div class="slider-label">
+                                    <span>Zoom</span>
+                                    <span id="zoom-value">1.0x</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    id="zoom"
+                                    min="0.1"
+                                    max="3.0"
+                                    value="1.0"
+                                    step="0.1"
+                                />
+                            </div>
+                        </div>
+
+                        <div class="controls">
+                            <button id="reset-camera">Reset Camera</button>
+                            <button id="reset-button">Reset All</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-section">
+                    <div
+                        class="accordion-header"
+                        data-target="lighting-control"
+                    >
+                        <span class="accordion-title">Lighting Control</span>
+                        <span class="accordion-arrow">▼</span>
+                    </div>
+                    <div class="accordion-content" id="lighting-control">
+                        <div class="subsection-title">
+                            Light Position/Direction
+                        </div>
+                        <div class="slider-controls">
+                            <div class="slider-container">
+                                <div class="slider-label">
+                                    <span>Light X</span>
+                                    <span id="light-x-value">0.0</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    id="light-x"
+                                    min="-5"
+                                    max="5"
+                                    value="0"
+                                    step="0.1"
+                                />
+                            </div>
+
+                            <div class="slider-container">
+                                <div class="slider-label">
+                                    <span>Light Y</span>
+                                    <span id="light-y-value">0.0</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    id="light-y"
+                                    min="-5"
+                                    max="5"
+                                    value="0"
+                                    step="0.1"
+                                />
+                            </div>
+
+                            <div class="slider-container">
+                                <div class="slider-label">
+                                    <span>Light Z</span>
+                                    <span id="light-z-value">-2.0</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    id="light-z"
+                                    min="-5"
+                                    max="5"
+                                    value="-2"
+                                    step="0.1"
+                                />
+                            </div>
+                        </div>
+
+                        <div class="subsection-title">Light Intensity</div>
+                        <div class="slider-controls">
+                            <div class="slider-container">
+                                <div class="slider-label">
+                                    <span>Ambient</span>
+                                    <span id="ambient-value">0.4</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    id="ambient-intensity"
+                                    min="0"
+                                    max="1"
+                                    value="0.4"
+                                    step="0.01"
+                                />
+                            </div>
+
+                            <div class="slider-container">
+                                <div class="slider-label">
+                                    <span>Diffuse</span>
+                                    <span id="diffuse-value">0.8</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    id="diffuse-intensity"
+                                    min="0"
+                                    max="1"
+                                    value="0.8"
+                                    step="0.01"
+                                />
+                            </div>
+
+                            <div class="slider-container">
+                                <div class="slider-label">
+                                    <span>Specular</span>
+                                    <span id="specular-value">1.0</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    id="specular-intensity"
+                                    min="0"
+                                    max="1"
+                                    value="1.0"
+                                    step="0.01"
+                                />
+                            </div>
+
+                            <div class="slider-container">
+                                <div class="slider-label">
+                                    <span>Shininess</span>
+                                    <span id="shininess-value">20</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    id="shininess"
+                                    min="1"
+                                    max="100"
+                                    value="20"
+                                    step="1"
+                                />
+                            </div>
+                        </div>
+
+                        <div class="controls">
+                            <button id="reset-lighting">Reset Lighting</button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
-    </div>
-</body>
-</html> 
+    </body>
+</html>

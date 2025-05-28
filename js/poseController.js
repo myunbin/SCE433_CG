@@ -1,754 +1,522 @@
-/**
- * @fileoverview 관절 기반 포즈 컨트롤러 모듈 - 계층적 관절 회전 관리
- * @description 인체 모델의 관절별 회전값을 해부학적 자유도에 따라 관리하고 UI와 연동하는 모듈
- * @author SCE433 Computer Graphics Team
- * @version 2.0.0 - 계층적 관절 모델
- */
-
-/**
- * 인체 관절별 설정 및 회전 범위 정의
- * @constant {Object} JOINT_CONFIG - 각 관절의 회전 설정과 표시명
- * @description 모든 관절에 완전한 3DOF 자유도 제공 (창의적 포즈 제작을 위해)
- */
 const JOINT_CONFIG = {
-    // 몸통/허리 관절: 3DOF (완전 자유)
     TORSO: {
         axes: ['X', 'Y', 'Z'],
         ranges: { X: [-180, 180], Y: [-180, 180], Z: [-180, 180] },
-        names: { X: 'X-axis Rotation', Y: 'Y-axis Rotation', Z: 'Z-axis Rotation' },
-        displayName: '몸통/허리'
+        names: {
+            X: 'X-axis Rotation',
+            Y: 'Y-axis Rotation',
+            Z: 'Z-axis Rotation',
+        },
+        displayName: 'Torso/Waist',
     },
-    
-    // 머리/목 관절: 3DOF (완전 자유)
     HEAD: {
         axes: ['X', 'Y', 'Z'],
         ranges: { X: [-180, 180], Y: [-180, 180], Z: [-180, 180] },
-        names: { X: 'Pitch (끄덕이기)', Y: 'Yaw (좌우돌리기)', Z: 'Roll (기울이기)' },
-        displayName: '머리/목'
+        names: {
+            X: 'Pitch (Nodding)',
+            Y: 'Yaw (Turning)',
+            Z: 'Roll (Tilting)',
+        },
+        displayName: 'Head/Neck',
     },
-    
-    // 왼쪽 어깨 관절: 3DOF (완전 자유)
     LEFT_UPPER_ARM: {
-        axes: ['X', 'Y', 'Z'], 
+        axes: ['X', 'Y', 'Z'],
         ranges: { X: [-180, 180], Y: [-180, 180], Z: [-180, 180] },
-        names: { X: 'X-axis Rotation', Y: 'Y-axis Rotation', Z: 'Z-axis Rotation' },
-        displayName: '왼쪽 어깨'
+        names: {
+            X: 'X-axis Rotation',
+            Y: 'Y-axis Rotation',
+            Z: 'Z-axis Rotation',
+        },
+        displayName: 'Left Shoulder',
     },
-    
-    // 오른쪽 어깨 관절: 3DOF (완전 자유)
     RIGHT_UPPER_ARM: {
         axes: ['X', 'Y', 'Z'],
         ranges: { X: [-180, 180], Y: [-180, 180], Z: [-180, 180] },
-        names: { X: 'X-axis Rotation', Y: 'Y-axis Rotation', Z: 'Z-axis Rotation' },
-        displayName: '오른쪽 어깨'
+        names: {
+            X: 'X-axis Rotation',
+            Y: 'Y-axis Rotation',
+            Z: 'Z-axis Rotation',
+        },
+        displayName: 'Right Shoulder',
     },
-    
-    // 왼쪽 팔꿈치 관절: 3DOF (완전 자유)
     LEFT_LOWER_ARM: {
         axes: ['X', 'Y', 'Z'],
         ranges: { X: [-180, 180], Y: [-180, 180], Z: [-180, 180] },
-        names: { X: 'X-axis Rotation', Y: 'Y-axis Rotation', Z: 'Z-axis Rotation' },
-        displayName: '왼쪽 팔꿈치'
+        names: {
+            X: 'X-axis Rotation',
+            Y: 'Y-axis Rotation',
+            Z: 'Z-axis Rotation',
+        },
+        displayName: 'Left Elbow',
     },
-    
-    // 오른쪽 팔꿈치 관절: 3DOF (완전 자유)
     RIGHT_LOWER_ARM: {
         axes: ['X', 'Y', 'Z'],
         ranges: { X: [-180, 180], Y: [-180, 180], Z: [-180, 180] },
-        names: { X: 'X-axis Rotation', Y: 'Y-axis Rotation', Z: 'Z-axis Rotation' },
-        displayName: '오른쪽 팔꿈치'
+        names: {
+            X: 'X-axis Rotation',
+            Y: 'Y-axis Rotation',
+            Z: 'Z-axis Rotation',
+        },
+        displayName: 'Right Elbow',
     },
-    
-    // 왼쪽 손목 관절: 3DOF (완전 자유)
     LEFT_HAND: {
         axes: ['X', 'Y', 'Z'],
         ranges: { X: [-180, 180], Y: [-180, 180], Z: [-180, 180] },
-        names: { X: 'X-axis Rotation', Y: 'Y-axis Rotation', Z: 'Z-axis Rotation' },
-        displayName: '왼쪽 손목'
+        names: {
+            X: 'X-axis Rotation',
+            Y: 'Y-axis Rotation',
+            Z: 'Z-axis Rotation',
+        },
+        displayName: 'Left Wrist',
     },
-    
-    // 오른쪽 손목 관절: 3DOF (완전 자유)
     RIGHT_HAND: {
         axes: ['X', 'Y', 'Z'],
         ranges: { X: [-180, 180], Y: [-180, 180], Z: [-180, 180] },
-        names: { X: 'X-axis Rotation', Y: 'Y-axis Rotation', Z: 'Z-axis Rotation' },
-        displayName: '오른쪽 손목'
+        names: {
+            X: 'X-axis Rotation',
+            Y: 'Y-axis Rotation',
+            Z: 'Z-axis Rotation',
+        },
+        displayName: 'Right Wrist',
     },
-    
-    // 왼쪽 엉덩이 관절: 3DOF (완전 자유)
     LEFT_UPPER_LEG: {
         axes: ['X', 'Y', 'Z'],
         ranges: { X: [-180, 180], Y: [-180, 180], Z: [-180, 180] },
-        names: { X: 'X-axis Rotation', Y: 'Y-axis Rotation', Z: 'Z-axis Rotation' },
-        displayName: '왼쪽 엉덩이'
+        names: {
+            X: 'X-axis Rotation',
+            Y: 'Y-axis Rotation',
+            Z: 'Z-axis Rotation',
+        },
+        displayName: 'Left Hip',
     },
-    
-    // 오른쪽 엉덩이 관절: 3DOF (완전 자유)
     RIGHT_UPPER_LEG: {
         axes: ['X', 'Y', 'Z'],
         ranges: { X: [-180, 180], Y: [-180, 180], Z: [-180, 180] },
-        names: { X: 'X-axis Rotation', Y: 'Y-axis Rotation', Z: 'Z-axis Rotation' },
-        displayName: '오른쪽 엉덩이'
+        names: {
+            X: 'X-axis Rotation',
+            Y: 'Y-axis Rotation',
+            Z: 'Z-axis Rotation',
+        },
+        displayName: 'Right Hip',
     },
-    
-    // 왼쪽 무릎 관절: 3DOF (완전 자유)
     LEFT_LOWER_LEG: {
         axes: ['X', 'Y', 'Z'],
         ranges: { X: [-180, 180], Y: [-180, 180], Z: [-180, 180] },
-        names: { X: 'X-axis Rotation', Y: 'Y-axis Rotation', Z: 'Z-axis Rotation' },
-        displayName: '왼쪽 무릎'
+        names: {
+            X: 'X-axis Rotation',
+            Y: 'Y-axis Rotation',
+            Z: 'Z-axis Rotation',
+        },
+        displayName: 'Left Knee',
     },
-    
-    // 오른쪽 무릎 관절: 3DOF (완전 자유)
     RIGHT_LOWER_LEG: {
         axes: ['X', 'Y', 'Z'],
         ranges: { X: [-180, 180], Y: [-180, 180], Z: [-180, 180] },
-        names: { X: 'X-axis Rotation', Y: 'Y-axis Rotation', Z: 'Z-axis Rotation' },
-        displayName: '오른쪽 무릎'
+        names: {
+            X: 'X-axis Rotation',
+            Y: 'Y-axis Rotation',
+            Z: 'Z-axis Rotation',
+        },
+        displayName: 'Right Knee',
     },
-    
-    // 왼쪽 발목 관절: 3DOF (완전 자유)
     LEFT_FOOT: {
         axes: ['X', 'Y', 'Z'],
         ranges: { X: [-180, 180], Y: [-180, 180], Z: [-180, 180] },
-        names: { X: 'X-axis Rotation', Y: 'Y-axis Rotation', Z: 'Z-axis Rotation' },
-        displayName: '왼쪽 발목'
+        names: {
+            X: 'X-axis Rotation',
+            Y: 'Y-axis Rotation',
+            Z: 'Z-axis Rotation',
+        },
+        displayName: 'Left Ankle',
     },
-    
-    // 오른쪽 발목 관절: 3DOF (완전 자유)
     RIGHT_FOOT: {
         axes: ['X', 'Y', 'Z'],
         ranges: { X: [-180, 180], Y: [-180, 180], Z: [-180, 180] },
-        names: { X: 'X-axis Rotation', Y: 'Y-axis Rotation', Z: 'Z-axis Rotation' },
-        displayName: '오른쪽 발목'
-    }
+        names: {
+            X: 'X-axis Rotation',
+            Y: 'Y-axis Rotation',
+            Z: 'Z-axis Rotation',
+        },
+        displayName: 'Right Ankle',
+    },
 };
-
-/**
- * 계층적 관절 구조 정의 (부모-자식 관계)
- * @constant {Object} JOINT_HIERARCHY - 각 관절의 부모-자식 관계
- */
 const JOINT_HIERARCHY = {
     ROOT: ['TORSO'],
-    TORSO: ['HEAD', 'LEFT_UPPER_ARM', 'RIGHT_UPPER_ARM', 'LEFT_UPPER_LEG', 'RIGHT_UPPER_LEG'],
+    TORSO: [
+        'HEAD',
+        'LEFT_UPPER_ARM',
+        'RIGHT_UPPER_ARM',
+        'LEFT_UPPER_LEG',
+        'RIGHT_UPPER_LEG',
+    ],
     HEAD: [],
     LEFT_UPPER_ARM: ['LEFT_LOWER_ARM'],
     LEFT_LOWER_ARM: ['LEFT_HAND'],
     LEFT_HAND: [],
     RIGHT_UPPER_ARM: ['RIGHT_LOWER_ARM'],
-    RIGHT_LOWER_ARM: ['RIGHT_HAND'], 
+    RIGHT_LOWER_ARM: ['RIGHT_HAND'],
     RIGHT_HAND: [],
     LEFT_UPPER_LEG: ['LEFT_LOWER_LEG'],
     LEFT_LOWER_LEG: ['LEFT_FOOT'],
     LEFT_FOOT: [],
     RIGHT_UPPER_LEG: ['RIGHT_LOWER_LEG'],
     RIGHT_LOWER_LEG: ['RIGHT_FOOT'],
-    RIGHT_FOOT: []
+    RIGHT_FOOT: [],
 };
-
-/**
- * 미리 정의된 달리기 포즈
- * @constant {Object} RUNNING_POSE - 역동적인 달리기 자세
- * @description 픽토그램과 동일한 실제 달리기 포즈 (사용자 조정 완료)
- */
 const RUNNING_POSE = {
-    TORSO: { x: 0, y: 0, z: 0 },                      // 몸통 기본 위치
-    HEAD: { x: 0, y: 0, z: 0 },                       // 머리 기본 위치
-    LEFT_UPPER_ARM: { x: -76, y: 0, z: 0 },           // 왼팔 뒤로
-    RIGHT_UPPER_ARM: { x: 66, y: 0, z: 0 },           // 오른팔 앞으로
-    LEFT_LOWER_ARM: { x: 56, y: 0, z: 0 },            // 왼팔꿈치 굽혀서 앞으로
-    RIGHT_LOWER_ARM: { x: 83, y: 0, z: 0 },           // 오른팔꿈치 굽혀서 뒤로
-    LEFT_HAND: { x: -1, y: 11, z: 0 },                // 왼손 위치 조정
-    RIGHT_HAND: { x: 34, y: 8, z: 0 },                // 오른손 위치 조정
-    LEFT_UPPER_LEG: { x: 91, y: 0, z: 0 },            // 왼다리 높이 올림
-    RIGHT_UPPER_LEG: { x: 0, y: 0, z: 0 },            // 오른다리 기본 위치
-    LEFT_LOWER_LEG: { x: -151, y: 0, z: 0 },          // 왼종아리 완전히 접어올림
-    RIGHT_LOWER_LEG: { x: 0, y: 0, z: 0 },            // 오른종아리 기본 위치
-    LEFT_FOOT: { x: 0, y: 0, z: 0 },                  // 왼발 기본 위치
-    RIGHT_FOOT: { x: 0, y: 0, z: 0 }                  // 오른발 기본 위치
+    TORSO: { x: 0, y: 0, z: 0 },
+    HEAD: { x: 0, y: 0, z: 0 },
+    LEFT_UPPER_ARM: { x: -76, y: 0, z: 0 },
+    RIGHT_UPPER_ARM: { x: 66, y: 0, z: 0 },
+    LEFT_LOWER_ARM: { x: 56, y: 0, z: 0 },
+    RIGHT_LOWER_ARM: { x: 83, y: 0, z: 0 },
+    LEFT_HAND: { x: -1, y: 11, z: 0 },
+    RIGHT_HAND: { x: 34, y: 8, z: 0 },
+    LEFT_UPPER_LEG: { x: 91, y: 0, z: 0 },
+    RIGHT_UPPER_LEG: { x: 0, y: 0, z: 0 },
+    LEFT_LOWER_LEG: { x: -151, y: 0, z: 0 },
+    RIGHT_LOWER_LEG: { x: 0, y: 0, z: 0 },
+    LEFT_FOOT: { x: 0, y: 0, z: 0 },
+    RIGHT_FOOT: { x: 0, y: 0, z: 0 },
 };
-
-/**
- * 관절 중심의 계층적 포즈 제어를 담당하는 클래스
- * @class PoseController
- * @description 해부학적 자유도에 따른 관절별 회전값 관리 및 계층적 적용
- */
 class PoseController {
-    /**
-     * PoseController 생성자
-     * @param {HumanModel} humanModel - 인체 모델 인스턴스
-     */
     constructor(humanModel) {
         this.humanModel = humanModel;
         this.selectedJoint = '';
         this.jointRotations = {};
-        
-        // 부착물 관리
         this.selectedAttachment = '';
-        this.attachmentRotations = new Map(); // 부착물 ID -> 회전값
-        this.attachmentPositions = new Map(); // 부착물 ID -> 위치값
-        
-        // 기본 회전값 초기화
+        this.attachmentRotations = new Map();
+        this.attachmentPositions = new Map();
         this.initializeJointRotations();
-        
-        // 기본 포즈를 모델에 적용
         this.applyHierarchicalRotations();
-        
-        // UI 이벤트 리스너 설정
         this.setupEventListeners();
     }
-    
-    /**
-     * 각 관절별 기본 회전값 초기화
-     * @method initializeJointRotations
-     */
     initializeJointRotations() {
-        Object.keys(JOINT_CONFIG).forEach(jointName => {
+        Object.keys(JOINT_CONFIG).forEach((jointName) => {
             this.jointRotations[jointName] = {
                 x: 0,
                 y: 0,
-                z: 0
+                z: 0,
             };
         });
     }
-    
-    /**
-     * 미리 정의된 달리기 포즈 적용
-     * @method applyRunningPose
-     */
     applyRunningPose() {
-        // 달리기 포즈 데이터를 현재 관절 회전값에 적용
-        Object.keys(RUNNING_POSE).forEach(jointName => {
+        Object.keys(RUNNING_POSE).forEach((jointName) => {
             if (this.jointRotations[jointName]) {
                 this.jointRotations[jointName] = { ...RUNNING_POSE[jointName] };
             }
         });
-        
-        // 계층적으로 모델에 적용
         this.applyHierarchicalRotations();
     }
-    
-    /**
-     * UI 이벤트 리스너 설정
-     * @method setupEventListeners
-     */
     setupEventListeners() {
-        // 관절 선택 드롭다운
         const selector = document.getElementById('joint-selector');
         selector.addEventListener('change', (e) => {
             this.selectJoint(e.target.value);
         });
-        
-        // 관절별 회전 슬라이더들
-        ['x', 'y', 'z'].forEach(axis => {
+        ['x', 'y', 'z'].forEach((axis) => {
             const slider = document.getElementById(`joint-rotate-${axis}`);
-            const valueDisplay = document.getElementById(`joint-rotate-${axis}-value`);
-            
+            const valueDisplay = document.getElementById(
+                `joint-rotate-${axis}-value`
+            );
             slider.addEventListener('input', (e) => {
                 const value = parseInt(e.target.value);
                 valueDisplay.textContent = value + '°';
                 this.setJointRotation(this.selectedJoint, axis, value);
             });
         });
-        
-        // 관절 회전 초기화 버튼
-        document.getElementById('reset-joint-rotation').addEventListener('click', () => {
-            this.resetJointRotation(this.selectedJoint);
-        });
+        document
+            .getElementById('reset-joint-rotation')
+            .addEventListener('click', () => {
+                this.resetJointRotation(this.selectedJoint);
+            });
     }
-    
-    /**
-     * 특정 관절 선택 및 UI 업데이트
-     * @method selectJoint
-     * @param {string} jointName - 선택할 관절 이름
-     */
     selectJoint(jointName) {
         this.selectedJoint = jointName;
-        
         const controlsDiv = document.getElementById('joint-rotation-controls');
         const jointNameSpan = document.getElementById('selected-joint-name');
-        
         if (jointName && JOINT_CONFIG[jointName]) {
             const jointInfo = JOINT_CONFIG[jointName];
-            
-            // 컨트롤 표시
             controlsDiv.style.display = 'block';
             jointNameSpan.textContent = jointInfo.displayName;
-            
-            // 사용 가능한 축만 표시
-            ['x', 'y', 'z'].forEach(axis => {
-                const axisContainer = document.getElementById(`joint-axis-${axis}`);
-                const axisLabel = document.getElementById(`joint-axis-${axis}-label`);
+            ['x', 'y', 'z'].forEach((axis) => {
+                const axisContainer = document.getElementById(
+                    `joint-axis-${axis}`
+                );
+                const axisLabel = document.getElementById(
+                    `joint-axis-${axis}-label`
+                );
                 const slider = document.getElementById(`joint-rotate-${axis}`);
-                
                 if (jointInfo.axes.includes(axis.toUpperCase())) {
-                    // 축 표시 및 설정
                     axisContainer.style.display = 'block';
                     axisLabel.textContent = jointInfo.names[axis.toUpperCase()];
-                    
-                    // 해부학적 범위로 슬라이더 제한
                     const range = jointInfo.ranges[axis.toUpperCase()];
                     slider.min = range[0];
                     slider.max = range[1];
-                    
-                    // 중간값으로 초기화 (0도 또는 범위 중간)
-                    const defaultValue = range[0] <= 0 && range[1] >= 0 ? 0 : Math.floor((range[0] + range[1]) / 2);
-                    slider.value = this.jointRotations[jointName][axis] || defaultValue;
+                    const defaultValue =
+                        range[0] <= 0 && range[1] >= 0
+                            ? 0
+                            : Math.floor((range[0] + range[1]) / 2);
+                    slider.value =
+                        this.jointRotations[jointName][axis] || defaultValue;
                 } else {
-                    // 축 숨기기
                     axisContainer.style.display = 'none';
                 }
             });
-            
-            // 현재 회전값으로 슬라이더 업데이트
             this.updateSliders();
-            
-            // 포즈 저장 버튼 활성화
             this.updatePoseButtons();
         } else {
-            // 컨트롤 숨기기
             controlsDiv.style.display = 'none';
-            jointNameSpan.textContent = '관절을 선택하세요';
+            jointNameSpan.textContent = 'Select a joint';
         }
     }
-    
-    /**
-     * 특정 관절의 회전값 설정 (계층적 적용)
-     * @method setJointRotation
-     * @param {string} jointName - 관절 이름
-     * @param {string} axis - 회전축 ('x', 'y', 'z')
-     * @param {number} angle - 회전 각도 (도 단위)
-     */
     setJointRotation(jointName, axis, angle) {
         if (!jointName || !this.jointRotations[jointName]) return;
-        
-        // 해부학적 범위 검증
         const jointInfo = JOINT_CONFIG[jointName];
         if (!jointInfo || !jointInfo.axes.includes(axis.toUpperCase())) return;
-        
         const range = jointInfo.ranges[axis.toUpperCase()];
         angle = Math.max(range[0], Math.min(range[1], angle));
-        
         this.jointRotations[jointName][axis] = angle;
-        
-        // 계층적으로 모델에 회전값 적용
         this.applyHierarchicalRotations();
-        
-        // 렌더링 업데이트
         if (window.render) {
             window.render();
         }
     }
-    
-    /**
-     * 계층적으로 모든 관절 회전값을 모델에 적용
-     * @method applyHierarchicalRotations
-     */
     applyHierarchicalRotations() {
-        // 각 관절의 회전값을 새로운 Node 시스템에 적용
-        Object.keys(this.jointRotations).forEach(jointName => {
+        Object.keys(this.jointRotations).forEach((jointName) => {
             const rotation = this.jointRotations[jointName];
-            
-            // 새로운 Node 시스템의 setNodeTransform 메서드 사용
             if (this.humanModel.setNodeTransform) {
                 this.humanModel.setNodeTransform(
                     jointName,
-                    vec3(0, 0, 0), // translation
-                    vec3(rotation.x, rotation.y, rotation.z), // rotation
-                    vec3(1, 1, 1)  // scale
+                    vec3(0, 0, 0),
+                    vec3(rotation.x, rotation.y, rotation.z),
+                    vec3(1, 1, 1)
                 );
             }
         });
     }
-    
-    /**
-     * 재귀적으로 관절 계층구조를 순회하며 변환 적용 (향후 확장용)
-     * @method applyJointHierarchy
-     * @param {string} parentJoint - 부모 관절
-     * @param {mat4} parentTransform - 부모로부터의 누적 변환
-     */
     applyJointHierarchy(parentJoint, parentTransform) {
-        // 향후 더 복잡한 계층적 변환이 필요할 때 사용
         const children = JOINT_HIERARCHY[parentJoint];
         if (!children) return;
-        
-        children.forEach(childJoint => {
-            // 자식 관절들로 재귀 호출
+        children.forEach((childJoint) => {
             this.applyJointHierarchy(childJoint, parentTransform);
         });
     }
-    
-    /**
-     * 특정 관절의 회전 초기화
-     * @method resetJointRotation
-     * @param {string} jointName - 초기화할 관절 이름
-     */
     resetJointRotation(jointName) {
         if (!jointName || !this.jointRotations[jointName]) return;
-        
         this.jointRotations[jointName] = { x: 0, y: 0, z: 0 };
-        
-        // 슬라이더 업데이트
         this.updateSliders();
-        
-        // 모델에 적용
         this.applyHierarchicalRotations();
-        
-        // 렌더링 업데이트
         if (window.render) {
             window.render();
         }
-        
-        this.showStatusMessage(`${JOINT_CONFIG[jointName]?.displayName || jointName} 관절이 초기화되었습니다.`, 'success');
+        this.showStatusMessage(
+            `${JOINT_CONFIG[jointName]?.displayName || jointName} joint has been reset.`,
+            'success'
+        );
     }
-    
-    /**
-     * 현재 선택된 관절의 회전값으로 슬라이더 업데이트
-     * @method updateSliders
-     */
     updateSliders() {
-        if (!this.selectedJoint || !this.jointRotations[this.selectedJoint]) return;
-        
+        if (!this.selectedJoint || !this.jointRotations[this.selectedJoint])
+            return;
         const rotation = this.jointRotations[this.selectedJoint];
-        
-        ['x', 'y', 'z'].forEach(axis => {
+        ['x', 'y', 'z'].forEach((axis) => {
             const slider = document.getElementById(`joint-rotate-${axis}`);
-            const valueDisplay = document.getElementById(`joint-rotate-${axis}-value`);
-            
+            const valueDisplay = document.getElementById(
+                `joint-rotate-${axis}-value`
+            );
             if (slider.parentElement.style.display !== 'none') {
                 slider.value = rotation[axis];
                 valueDisplay.textContent = rotation[axis] + '°';
             }
         });
     }
-    
-    /**
-     * 현재 포즈의 모든 관절 회전값 반환
-     * @method getCurrentPose
-     * @returns {Object} 모든 관절의 회전값
-     */
     getCurrentPose() {
         const pose = {};
-        Object.keys(this.jointRotations).forEach(jointName => {
+        Object.keys(this.jointRotations).forEach((jointName) => {
             pose[jointName] = { ...this.jointRotations[jointName] };
         });
         return pose;
     }
-    
-    /**
-     * 포즈 데이터로부터 관절 회전값 설정
-     * @method setPose
-     * @param {Object} poseData - 포즈 데이터
-     */
     setPose(poseData) {
         if (!poseData) return;
-        
-        Object.keys(poseData).forEach(jointName => {
+        Object.keys(poseData).forEach((jointName) => {
             if (this.jointRotations[jointName]) {
                 this.jointRotations[jointName] = { ...poseData[jointName] };
             }
         });
-        
-        // 현재 선택된 관절이 있다면 슬라이더 업데이트
         this.updateSliders();
-        
-        // 계층적으로 모델에 적용
         this.applyHierarchicalRotations();
-        
-        // 렌더링 업데이트
         if (window.render) {
             window.render();
         }
     }
-    
-    /**
-     * 모든 관절 회전 초기화
-     * @method resetAllRotations
-     */
     resetAllRotations() {
         this.initializeJointRotations();
         this.updateSliders();
         this.applyHierarchicalRotations();
-        
         if (window.render) {
             window.render();
         }
-        
-        this.showStatusMessage('모든 관절 회전이 초기화되었습니다.', 'success');
+        this.showStatusMessage(
+            'All joint rotations have been reset.',
+            'success'
+        );
     }
-    
-    /**
-     * 달리기 포즈 재적용
-     * @method reapplyRunningPose
-     */
     reapplyRunningPose() {
-        // PoseController의 내부 데이터를 달리기 포즈로 업데이트
         this.applyRunningPose();
-        
-        // 현재 선택된 관절이 있다면 슬라이더 업데이트
         this.updateSliders();
-        
-        this.showStatusMessage('달리기 포즈가 적용되었습니다.', 'success');
-        
-        // 렌더링 업데이트
+        this.showStatusMessage('Running pose has been applied.', 'success');
         if (window.render) {
             window.render();
         }
     }
-    
-    /**
-     * 포즈 관련 버튼 상태 업데이트
-     * @method updatePoseButtons
-     */
     updatePoseButtons() {
         const addToAnimationBtn = document.getElementById('add-to-animation');
-        
-        // 관절이 선택되어 있으면 애니메이션 추가 버튼 활성화
         if (this.selectedJoint) {
             addToAnimationBtn.disabled = false;
         }
     }
-    
-    /**
-     * 상태 메시지 표시
-     * @method showStatusMessage
-     * @param {string} message - 표시할 메시지
-     * @param {string} type - 메시지 타입 ('success', 'error', 'info')
-     */
     showStatusMessage(message, type = 'info') {
-        // 기존 메시지 제거
         const existingMessage = document.querySelector('.status-message');
         if (existingMessage) {
             existingMessage.remove();
         }
-        
-        // 새 메시지 생성
         const messageDiv = document.createElement('div');
         messageDiv.className = `status-message status-${type}`;
         messageDiv.textContent = message;
-        
-        // 컨트롤 패널에 추가
         const rightPanel = document.querySelector('.right-panel');
         rightPanel.appendChild(messageDiv);
-        
-        // 3초 후 자동 제거
         setTimeout(() => {
             if (messageDiv.parentNode) {
                 messageDiv.remove();
             }
         }, 3000);
     }
-    
-    /**
-     * 부착물 추가
-     * @method addAttachment
-     * @param {string} parentNodeName - 부착할 부모 노드 이름
-     * @param {string} attachmentType - 부착물 타입 ('BALL' 또는 'STICK')
-     * @param {vec3} localPosition - 부모 노드로부터의 상대 위치
-     * @param {vec3} localRotation - 부모 노드로부터의 상대 회전
-     * @returns {string} 생성된 부착물 ID
-     */
-    addAttachment(parentNodeName, attachmentType, localPosition = vec3(0, -0.1, 0), localRotation = vec3(0, 0, 0)) {
-        const attachmentId = this.humanModel.addAttachment(parentNodeName, attachmentType, localPosition, localRotation);
-        
+    addAttachment(
+        parentNodeName,
+        attachmentType,
+        localPosition = vec3(0, -0.1, 0),
+        localRotation = vec3(0, 0, 0)
+    ) {
+        const attachmentId = this.humanModel.addAttachment(
+            parentNodeName,
+            attachmentType,
+            localPosition,
+            localRotation
+        );
         if (attachmentId) {
-            // 부착물 회전값 초기화
             this.attachmentRotations.set(attachmentId, {
                 x: localRotation[0],
-                y: localRotation[1], 
-                z: localRotation[2]
+                y: localRotation[1],
+                z: localRotation[2],
             });
-            
-            // 부착물 위치값 초기화
             this.attachmentPositions.set(attachmentId, {
                 x: localPosition[0],
                 y: localPosition[1],
-                z: localPosition[2]
+                z: localPosition[2],
             });
-            
-            this.showStatusMessage(`${attachmentType === 'BALL' ? '공' : '막대기'}이 ${this.getNodeDisplayName(parentNodeName)}에 추가되었습니다.`, 'success');
-            
-            // 렌더링 업데이트
+            this.showStatusMessage(
+                `${attachmentType === 'BALL' ? 'Ball' : 'Stick'} has been added to ${this.getNodeDisplayName(parentNodeName)}.`,
+                'success'
+            );
             if (window.render) {
                 window.render();
             }
         }
-        
         return attachmentId;
     }
-    
-    /**
-     * 부착물 제거
-     * @method removeAttachment
-     * @param {string} attachmentId - 제거할 부착물 ID
-     * @returns {boolean} 제거 성공 여부
-     */
     removeAttachment(attachmentId) {
         const success = this.humanModel.removeAttachment(attachmentId);
-        
         if (success) {
             this.attachmentRotations.delete(attachmentId);
             this.attachmentPositions.delete(attachmentId);
-            
-            // 현재 선택된 부착물이 제거된 경우 선택 해제
             if (this.selectedAttachment === attachmentId) {
                 this.selectedAttachment = '';
             }
-            
-            this.showStatusMessage('부착물이 제거되었습니다.', 'success');
-            
-            // 렌더링 업데이트
+            this.showStatusMessage('Attachment has been removed.', 'success');
             if (window.render) {
                 window.render();
             }
         }
-        
         return success;
     }
-    
-    /**
-     * 모든 부착물 제거
-     * @method removeAllAttachments
-     */
     removeAllAttachments() {
         this.humanModel.removeAllAttachments();
         this.attachmentRotations.clear();
         this.attachmentPositions.clear();
         this.selectedAttachment = '';
-        
-        this.showStatusMessage('모든 부착물이 제거되었습니다.', 'success');
-        
-        // 렌더링 업데이트
+        this.showStatusMessage('All attachments have been removed.', 'success');
         if (window.render) {
             window.render();
         }
     }
-    
-    /**
-     * 부착물 회전 설정
-     * @method setAttachmentRotation
-     * @param {string} attachmentId - 부착물 ID
-     * @param {string} axis - 회전축 ('x', 'y', 'z')
-     * @param {number} angle - 회전 각도 (도 단위)
-     */
     setAttachmentRotation(attachmentId, axis, angle) {
         if (!this.attachmentRotations.has(attachmentId)) return;
-        
         const rotation = this.attachmentRotations.get(attachmentId);
         rotation[axis] = angle;
-        
-        // 모델에 적용
         this.humanModel.setAttachmentRotation(
             attachmentId,
             vec3(rotation.x, rotation.y, rotation.z)
         );
-        
-        // 렌더링 업데이트
         if (window.render) {
             window.render();
         }
     }
-    
-    /**
-     * 부착물 위치 설정
-     * @method setAttachmentPosition
-     * @param {string} attachmentId - 부착물 ID
-     * @param {string} axis - 위치축 ('x', 'y', 'z')
-     * @param {number} value - 위치값
-     */
     setAttachmentPosition(attachmentId, axis, value) {
         if (!this.attachmentPositions.has(attachmentId)) return;
-        
         const position = this.attachmentPositions.get(attachmentId);
         position[axis] = value;
-        
-        // 모델에 적용
         this.humanModel.setAttachmentPosition(
             attachmentId,
             vec3(position.x, position.y, position.z)
         );
-        
-        // 렌더링 업데이트
         if (window.render) {
             window.render();
         }
     }
-    
-    /**
-     * 부착물의 현재 위치 가져오기
-     * @method getAttachmentPosition
-     * @param {string} attachmentId - 부착물 ID
-     * @returns {Object} 위치값 {x, y, z}
-     */
     getAttachmentPosition(attachmentId) {
-        return this.attachmentPositions.get(attachmentId) || { x: 0, y: 0, z: 0 };
+        return (
+            this.attachmentPositions.get(attachmentId) || { x: 0, y: 0, z: 0 }
+        );
     }
-    
-    /**
-     * 부착물의 현재 회전 가져오기
-     * @method getAttachmentRotation
-     * @param {string} attachmentId - 부착물 ID
-     * @returns {Object} 회전값 {x, y, z}
-     */
     getAttachmentRotation(attachmentId) {
-        return this.attachmentRotations.get(attachmentId) || { x: 0, y: 0, z: 0 };
+        return (
+            this.attachmentRotations.get(attachmentId) || { x: 0, y: 0, z: 0 }
+        );
     }
-    
-    /**
-     * 부착물 목록 가져오기
-     * @method getAttachments
-     * @returns {Array} 부착물 정보 배열
-     */
     getAttachments() {
         return this.humanModel.getAttachments();
     }
-    
-    /**
-     * 특정 노드에 부착된 부착물들 가져오기
-     * @method getAttachmentsForNode
-     * @param {string} nodeName - 노드 이름
-     * @returns {Array} 해당 노드에 부착된 부착물 정보 배열
-     */
     getAttachmentsForNode(nodeName) {
         return this.humanModel.getAttachmentsForNode(nodeName);
     }
-    
-    /**
-     * 노드 이름을 사용자 친화적인 이름으로 변환
-     * @method getNodeDisplayName
-     * @param {string} nodeName - 노드 이름
-     * @returns {string} 표시용 이름
-     */
     getNodeDisplayName(nodeName) {
-        // 먼저 부착물인지 확인
         if (this.attachmentRotations.has(nodeName)) {
             const attachments = this.getAttachments();
-            const attachment = attachments.find(a => a.id === nodeName);
+            const attachment = attachments.find((a) => a.id === nodeName);
             if (attachment) {
-                const typeName = attachment.type === 'BALL' ? '공' : '막대기';
-                const parentDisplayName = this.getNodeDisplayName(attachment.parentNodeName);
+                const typeName = attachment.type === 'BALL' ? 'Ball' : 'Stick';
+                const parentDisplayName = this.getNodeDisplayName(
+                    attachment.parentNodeName
+                );
                 return `${typeName} (${parentDisplayName})`;
             }
         }
-        
-        // 인체 부위 표시명
         const displayNames = {
-            'LEFT_HAND': '왼손',
-            'RIGHT_HAND': '오른손',
-            'LEFT_FOOT': '왼발',
-            'RIGHT_FOOT': '오른발',
-            'HEAD': '머리',
-            'TORSO': '몸통',
-            'LEFT_UPPER_ARM': '왼쪽 어깨',
-            'RIGHT_UPPER_ARM': '오른쪽 어깨',
-            'LEFT_LOWER_ARM': '왼쪽 팔꿈치',
-            'RIGHT_LOWER_ARM': '오른쪽 팔꿈치',
-            'LEFT_UPPER_LEG': '왼쪽 엉덩이',
-            'RIGHT_UPPER_LEG': '오른쪽 엉덩이',
-            'LEFT_LOWER_LEG': '왼쪽 무릎',
-            'RIGHT_LOWER_LEG': '오른쪽 무릎'
+            LEFT_HAND: 'Left Hand',
+            RIGHT_HAND: 'Right Hand',
+            LEFT_FOOT: 'Left Foot',
+            RIGHT_FOOT: 'Right Foot',
+            HEAD: 'Head',
+            TORSO: 'Torso',
+            LEFT_UPPER_ARM: 'Left Shoulder',
+            RIGHT_UPPER_ARM: 'Right Shoulder',
+            LEFT_LOWER_ARM: 'Left Elbow',
+            RIGHT_LOWER_ARM: 'Right Elbow',
+            LEFT_UPPER_LEG: 'Left Hip',
+            RIGHT_UPPER_LEG: 'Right Hip',
+            LEFT_LOWER_LEG: 'Left Knee',
+            RIGHT_LOWER_LEG: 'Right Knee',
         };
-        
         return displayNames[nodeName] || nodeName;
     }
-} 
+}

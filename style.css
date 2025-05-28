@@ -1,4 +1,3 @@
-/* Index.css에서 가져온 전역 설정 */
 :root {
     --primary-color: #1e40af;
     --primary-light: #93c5fd;
@@ -9,8 +8,6 @@
     --background-white: #ffffff;
     --shadow-sm: 0 4px 6px rgba(30, 58, 138, 0.1);
     --shadow-md: 0 8px 15px rgba(30, 58, 138, 0.2);
-    
-    /* 파스텔 색상 팔레트 */
     --pastel-blue: #a8c6fa;
     --pastel-pink: #f8c8da;
     --pastel-mint: #c1e6d6;
@@ -22,8 +19,10 @@
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-        'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+    font-family:
+        -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
+        "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
+        sans-serif;
     margin: 0;
     padding: 0;
     background-color: var(--background-light);
@@ -99,7 +98,10 @@ button {
     border-radius: 4px;
     font-weight: bold;
     cursor: pointer;
-    transition: background-color 0.2s, transform 0.1s, color 0.2s;
+    transition:
+        background-color 0.2s,
+        transform 0.1s,
+        color 0.2s;
     flex-grow: 1;
     text-align: center;
     white-space: nowrap;
@@ -110,7 +112,8 @@ button:hover {
     transform: translateY(-2px);
 }
 
-button:active, button.active {
+button:active,
+button.active {
     background-color: var(--primary-color);
     color: white;
     transform: translateY(1px);
@@ -193,8 +196,6 @@ input[type="range"]::-webkit-slider-thumb:hover {
     max-height: 200px;
     overflow-y: auto;
 }
-
-/* 모달 스타일 */
 .modal {
     display: none;
     position: fixed;
@@ -221,8 +222,14 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 
 @keyframes modalFadeIn {
-    from {opacity: 0; transform: translateY(-20px);}
-    to {opacity: 1; transform: translateY(0);}
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .close {
@@ -255,8 +262,6 @@ input[type="range"]::-webkit-slider-thumb:hover {
 .modal li {
     margin-bottom: 5px;
 }
-
-/* 색상 블록 스타일 */
 .color-block {
     display: inline-block;
     width: 20px;
@@ -265,40 +270,50 @@ input[type="range"]::-webkit-slider-thumb:hover {
     margin-right: 5px;
     vertical-align: middle;
 }
-
-/* 특정 키보드 색상 표시 */
-.color-1 { background-color: var(--pastel-blue); }
-.color-2 { background-color: var(--pastel-pink); }
-.color-3 { background-color: var(--pastel-mint); }
-.color-5 { background-color: var(--pastel-lavender); }
-.color-6 { background-color: var(--pastel-yellow); }
-.color-7 { background-color: var(--pastel-coral); }
-.color-8 { background-color: var(--pastel-purple); }
-.color-9 { background-color: var(--pastel-green); }
-
-/* 반응형 스타일 */
+.color-1 {
+    background-color: var(--pastel-blue);
+}
+.color-2 {
+    background-color: var(--pastel-pink);
+}
+.color-3 {
+    background-color: var(--pastel-mint);
+}
+.color-5 {
+    background-color: var(--pastel-lavender);
+}
+.color-6 {
+    background-color: var(--pastel-yellow);
+}
+.color-7 {
+    background-color: var(--pastel-coral);
+}
+.color-8 {
+    background-color: var(--pastel-purple);
+}
+.color-9 {
+    background-color: var(--pastel-green);
+}
 @media (max-width: 768px) {
     .container {
         flex-direction: column;
     }
-    
+
     .right-panel {
         width: 100%;
         max-height: 40vh;
     }
-    
+
     .left-panel {
         flex: none;
         padding: 10px;
     }
-    
+
     .modal-content {
         width: 90%;
         margin: 15% auto;
     }
-} 
-
-/* 부위 선택 드롭다운 */
+}
 select {
     width: 100%;
     padding: 8px;
@@ -314,8 +329,6 @@ select:focus {
     border-color: #007acc;
     box-shadow: 0 0 5px rgba(0, 122, 204, 0.3);
 }
-
-/* 포즈 저장 컨테이너 */
 .pose-save-container {
     display: flex;
     gap: 10px;
@@ -340,8 +353,6 @@ select:focus {
     flex: 0 0 auto;
     padding: 8px 12px;
 }
-
-/* 포즈 리스트 컨테이너 */
 .pose-list-container {
     margin-bottom: 15px;
 }
@@ -357,8 +368,6 @@ select:focus {
     padding: 8px;
     font-size: 12px;
 }
-
-/* 애니메이션 컨트롤 */
 .animation-controls {
     display: flex;
     gap: 10px;
@@ -417,8 +426,6 @@ select:focus {
     background-color: #ff3333;
     width: 5px;
 }
-
-/* 기본 스탠딩 키프레임 스타일 */
 .keyframe-marker.standing {
     background-color: #28a745;
     width: 4px;
@@ -430,15 +437,13 @@ select:focus {
 }
 
 .keyframe-marker.standing::before {
-    content: '🚶';
+    content: "🚶";
     position: absolute;
     top: -25px;
     left: 50%;
     transform: translateX(-50%);
     font-size: 12px;
 }
-
-/* 시작 키프레임 스타일 */
 .keyframe-marker.start {
     background-color: #28a745;
     width: 5px;
@@ -451,15 +456,13 @@ select:focus {
 }
 
 .keyframe-marker.start::before {
-    content: '🚀';
+    content: "🚀";
     position: absolute;
     top: -25px;
     left: 50%;
     transform: translateX(-50%);
     font-size: 12px;
 }
-
-/* 끝 키프레임 스타일 */
 .keyframe-marker.end {
     background-color: #dc3545;
     width: 5px;
@@ -473,23 +476,19 @@ select:focus {
 }
 
 .keyframe-marker.end::before {
-    content: '🏁';
+    content: "🏁";
     position: absolute;
     top: -25px;
     left: 50%;
     transform: translateX(-50%);
     font-size: 12px;
 }
-
-/* 드래그 중인 끝 키프레임 스타일 */
 .keyframe-marker.end:active {
     background-color: #007acc;
     transform: scale(1.2);
     z-index: 1000;
     box-shadow: 0 0 10px rgba(220, 53, 69, 0.5);
 }
-
-/* 부위별 회전 컨트롤 상태 표시 */
 #selected-part-name {
     color: #007acc;
     font-weight: bold;
@@ -510,36 +509,30 @@ select:focus {
     margin: 15px 0 0 0;
     text-align: center;
 }
-
-/* 활성화된 부위 스타일 */
 .active-part-control {
     background-color: rgba(0, 122, 204, 0.1);
     border-color: #007acc;
 }
-
-/* 반응형 대응 */
 @media (max-width: 1024px) {
     .container {
         flex-direction: column;
     }
-    
+
     .right-panel {
         width: 100%;
         max-height: none;
     }
-    
+
     .left-panel {
         padding: 10px;
     }
-    
+
     #gl-canvas {
         width: 100%;
         max-width: 500px;
         height: auto;
     }
 }
-
-/* 상태 메시지 */
 .status-message {
     padding: 8px 12px;
     border-radius: 4px;
@@ -565,19 +558,13 @@ select:focus {
     color: #004085;
     border: 1px solid #b3d7ff;
 }
-
-/* 숨겨진 요소 */
 .hidden {
     display: none !important;
 }
-
-/* 로딩 상태 */
 .loading {
     opacity: 0.6;
     pointer-events: none;
 }
-
-/* 아코디언 스타일 */
 .accordion-section {
     margin-bottom: 8px;
     border: 1px solid var(--primary-light);
@@ -647,8 +634,6 @@ select:focus {
 .accordion-content .slider-controls:first-child {
     border-top: none;
 }
-
-/* 서브섹션 타이틀 (아코디언 내부) */
 .subsection-title {
     font-weight: bold;
     color: var(--text-primary);
@@ -662,8 +647,6 @@ select:focus {
     border-top: none;
     padding-top: 15px;
 }
-
-/* 아코디언 내부 컨트롤 간격 조정 */
 .accordion-content .controls {
     margin-bottom: 0;
 }
@@ -672,8 +655,6 @@ select:focus {
     margin-bottom: 0;
     padding-top: 0;
 }
-
-/* 아코디언이 접힌 상태에서의 애니메이션 */
 @keyframes accordionOpen {
     from {
         max-height: 0;
@@ -695,13 +676,9 @@ select:focus {
         opacity: 0;
     }
 }
-
-/* 아코디언 호버 효과 */
 .accordion-section:hover {
     box-shadow: 0 4px 8px rgba(30, 58, 138, 0.1);
 }
-
-/* 활성화된 아코디언 섹션 */
 .accordion-section.expanded {
     border-color: var(--primary-color);
 }
@@ -731,8 +708,6 @@ select:focus {
     padding: 8px;
     font-size: 12px;
 }
-
-/* 부착물 관리 스타일 */
 .attachment-controls {
     margin-top: 15px;
 }
@@ -757,8 +732,6 @@ select:focus {
     border-radius: 8px;
     margin-bottom: 15px;
 }
-
-/* 부착물 위치 컨트롤 스타일 */
 #attachment-position-controls {
     background: #fff3cd;
     padding: 12px;
@@ -782,8 +755,6 @@ select:focus {
 #attachment-position-controls input[type="range"]::-webkit-slider-thumb:hover {
     background: #d63031;
 }
-
-/* 부착물 회전 컨트롤 스타일 */
 #attachment-rotation-controls {
     background: #e8f4fd;
     padding: 12px;
@@ -803,8 +774,6 @@ select:focus {
 #attachment-rotation-controls input[type="range"]::-webkit-slider-thumb:hover {
     background: #2d3436;
 }
-
-/* 부착물 버튼 스타일 */
 #add-ball-attachment {
     background: linear-gradient(135deg, #ff7675, #e84393);
     color: white;
@@ -848,19 +817,17 @@ select:focus {
 #remove-all-attachments:hover {
     background: linear-gradient(135deg, #d63031, #e17055);
 }
-
-/* 부착물 선택 드롭다운 */
-#attachment-selector, #attachment-parent-selector {
+#attachment-selector,
+#attachment-parent-selector {
     width: 100%;
     margin-bottom: 10px;
 }
 
-#attachment-selector:focus, #attachment-parent-selector:focus {
+#attachment-selector:focus,
+#attachment-parent-selector:focus {
     border-color: #74b9ff;
     box-shadow: 0 0 0 2px rgba(116, 185, 255, 0.2);
 }
-
-/* 부착물 상태 표시 */
 #selected-attachment-name {
     color: #0984e3;
     font-weight: bold;
@@ -873,33 +840,25 @@ select:focus {
     text-align: center;
     margin-top: 10px;
 }
-
-/* 부착물 구분선 스타일 */
 option:disabled {
     background-color: #f8f9fa;
     color: #6c757d;
     font-weight: bold;
     font-style: italic;
 }
-
-/* 부착물 계층 표시 */
 .attachment-hierarchy {
     padding-left: 20px;
     border-left: 2px solid #ddd;
     margin-left: 10px;
 }
-
-/* 부착물 연결 체인 표시 */
 .attachment-chain::before {
     content: "🔗 ";
     color: #74b9ff;
 }
-
-/* 부착물 타입별 아이콘 */
 .ball-attachment::before {
     content: "🔴 ";
 }
 
 .stick-attachment::before {
     content: "🟤 ";
-} 
+}
