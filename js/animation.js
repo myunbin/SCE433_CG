@@ -83,9 +83,14 @@ class Animation {
                 isEnd: true,
             };
             this.keyframes.push(startKeyframe, endKeyframe);
-            if (this.isPoseSame(currentPose, standingPose)) {
+
+            const isPoseSame = this.isPoseSame(currentPose, standingPose);
+            const isCameraSame = this.isCameraSame(currentCamera, defaultCamera);
+            const isLightingSame = this.isLightingSame(currentLighting, defaultLighting);
+
+            if (isPoseSame && isCameraSame && isLightingSame) {
                 this.showStatusMessage(
-                    'Start and end keyframes have been added. Please change the pose and add keyframes.',
+                    'Start and end keyframes have been added. Please change the pose, camera, or lighting and add keyframes.',
                     'info'
                 );
                 this.updateTotalDuration();
@@ -93,11 +98,10 @@ class Animation {
                 return;
             }
         }
-        const isEmptyPose = Object.values(currentPose).every(
-            (rotation) =>
-                rotation.x === 0 && rotation.y === 0 && rotation.z === 0
-        );
-        if (isEmptyPose && this.keyframes.length >= 2) {
+
+        const hasChanges = this.hasStateChanges(currentPose, currentCamera, currentLighting);
+        
+        if (!hasChanges && this.keyframes.length >= 2) {
             this.showStatusMessage(
                 'No changes in pose, camera, or lighting.',
                 'error'
@@ -172,6 +176,41 @@ class Animation {
             }
         }
         return true;
+    }
+    isCameraSame(camera1, camera2) {
+        if (!camera1 && !camera2) return true;
+        if (!camera1 || !camera2) return false;
+        const keys = ['eyeX', 'eyeY', 'eyeZ', 'atX', 'atY', 'atZ', 'upX', 'upY', 'upZ'];
+        for (const key of keys) {
+            if (Math.abs((camera1[key] || 0) - (camera2[key] || 0)) > 0.001) {
+                return false;
+            }
+        }
+        return true;
+    }
+    isLightingSame(lighting1, lighting2) {
+        if (!lighting1 && !lighting2) return true;
+        if (!lighting1 || !lighting2) return false;
+        const keys = ['ambientIntensity', 'diffuseIntensity', 'specularIntensity', 'lightX', 'lightY', 'lightZ'];
+        for (const key of keys) {
+            if (Math.abs((lighting1[key] || 0) - (lighting2[key] || 0)) > 0.001) {
+                return false;
+            }
+        }
+        return true;
+    }
+    hasStateChanges(pose, camera, lighting) {
+        if (this.keyframes.length < 2) return true;
+        
+        const lastMiddleKeyframe = this.keyframes[this.keyframes.length - 2];
+        
+        const poseChanged = !this.isPoseSame(pose, lastMiddleKeyframe.pose);
+        
+        const cameraChanged = !this.isCameraSame(camera, lastMiddleKeyframe.camera);
+        
+        const lightingChanged = !this.isLightingSame(lighting, lastMiddleKeyframe.lighting);
+        
+        return poseChanged || cameraChanged || lightingChanged;
     }
     clearAnimation() {
         if (this.keyframes.length === 0) {
