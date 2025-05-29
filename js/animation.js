@@ -394,7 +394,12 @@ class Animation {
             currentKeyframe.lighting &&
             nextKeyframe.lighting
         ) {
-            this.lighting.setState(currentKeyframe.lighting);
+            const interpolatedLighting = this.interpolateLighting(
+                currentKeyframe.lighting,
+                nextKeyframe.lighting,
+                progress
+            );
+            this.lighting.setState(interpolatedLighting);
         }
     }
     interpolatePoses(pose1, pose2, t) {
@@ -709,7 +714,7 @@ class Animation {
             position: [0.0, 0.0, -2.0, 1.0],
             type: 'point',
             intensity: {
-                ambient: 0.2,
+                ambient: 0.4,
                 diffuse: 0.8,
                 specular: 1.0,
             },
@@ -720,5 +725,28 @@ class Animation {
                 quadratic: 0.001,
             },
         };
+    }
+    interpolateLighting(lighting1, lighting2, t) {
+        const interpolatedLighting = {
+            position: [
+                lighting1.position[0] + (lighting2.position[0] - lighting1.position[0]) * t,
+                lighting1.position[1] + (lighting2.position[1] - lighting1.position[1]) * t,
+                lighting1.position[2] + (lighting2.position[2] - lighting1.position[2]) * t,
+                lighting1.position[3] + (lighting2.position[3] - lighting1.position[3]) * t
+            ],
+            type: lighting1.type,
+            intensity: {
+                ambient: lighting1.intensity.ambient + (lighting2.intensity.ambient - lighting1.intensity.ambient) * t,
+                diffuse: lighting1.intensity.diffuse + (lighting2.intensity.diffuse - lighting1.intensity.diffuse) * t,
+                specular: lighting1.intensity.specular + (lighting2.intensity.specular - lighting1.intensity.specular) * t
+            },
+            shininess: lighting1.shininess + (lighting2.shininess - lighting1.shininess) * t,
+            attenuation: {
+                constant: lighting1.attenuation.constant + (lighting2.attenuation.constant - lighting1.attenuation.constant) * t,
+                linear: lighting1.attenuation.linear + (lighting2.attenuation.linear - lighting1.attenuation.linear) * t,
+                quadratic: lighting1.attenuation.quadratic + (lighting2.attenuation.quadratic - lighting1.attenuation.quadratic) * t
+            }
+        };
+        return interpolatedLighting;
     }
 }
