@@ -180,8 +180,17 @@ class Animation {
     isCameraSame(camera1, camera2) {
         if (!camera1 && !camera2) return true;
         if (!camera1 || !camera2) return false;
-        const keys = ['eyeX', 'eyeY', 'eyeZ', 'atX', 'atY', 'atZ', 'upX', 'upY', 'upZ'];
-        for (const key of keys) {
+        const arrays = ['eye', 'at', 'up'];
+        for (const arrayName of arrays) {
+            if (!camera1[arrayName] || !camera2[arrayName]) continue;
+            for (let i = 0; i < 3; i++) {
+                if (Math.abs((camera1[arrayName][i] || 0) - (camera2[arrayName][i] || 0)) > 0.001) {
+                    return false;
+                }
+            }
+        }
+        const scalars = ['scale', 'theta', 'phi', 'radius'];
+        for (const key of scalars) {
             if (Math.abs((camera1[key] || 0) - (camera2[key] || 0)) > 0.001) {
                 return false;
             }
@@ -191,25 +200,43 @@ class Animation {
     isLightingSame(lighting1, lighting2) {
         if (!lighting1 && !lighting2) return true;
         if (!lighting1 || !lighting2) return false;
-        const keys = ['ambientIntensity', 'diffuseIntensity', 'specularIntensity', 'lightX', 'lightY', 'lightZ'];
-        for (const key of keys) {
-            if (Math.abs((lighting1[key] || 0) - (lighting2[key] || 0)) > 0.001) {
-                return false;
+        if (lighting1.position && lighting2.position) {
+            for (let i = 0; i < 4; i++) {
+                if (Math.abs((lighting1.position[i] || 0) - (lighting2.position[i] || 0)) > 0.001) {
+                    return false;
+                }
             }
+        }
+        if (lighting1.intensity && lighting2.intensity) {
+            const intensityKeys = ['ambient', 'diffuse', 'specular'];
+            for (const key of intensityKeys) {
+                if (Math.abs((lighting1.intensity[key] || 0) - (lighting2.intensity[key] || 0)) > 0.001) {
+                    return false;
+                }
+            }
+        }
+        if (lighting1.attenuation && lighting2.attenuation) {
+            const attenuationKeys = ['constant', 'linear', 'quadratic'];
+            for (const key of attenuationKeys) {
+                if (Math.abs((lighting1.attenuation[key] || 0) - (lighting2.attenuation[key] || 0)) > 0.001) {
+                    return false;
+                }
+            }
+        }
+        if (Math.abs((lighting1.shininess || 0) - (lighting2.shininess || 0)) > 0.001) {
+            return false;
+        }
+        if (lighting1.type !== lighting2.type) {
+            return false;
         }
         return true;
     }
     hasStateChanges(pose, camera, lighting) {
         if (this.keyframes.length < 2) return true;
-        
         const lastMiddleKeyframe = this.keyframes[this.keyframes.length - 2];
-        
         const poseChanged = !this.isPoseSame(pose, lastMiddleKeyframe.pose);
-        
         const cameraChanged = !this.isCameraSame(camera, lastMiddleKeyframe.camera);
-        
         const lightingChanged = !this.isLightingSame(lighting, lastMiddleKeyframe.lighting);
-        
         return poseChanged || cameraChanged || lightingChanged;
     }
     clearAnimation() {

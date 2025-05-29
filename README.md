@@ -26,6 +26,12 @@ A 3D human model simulation application inspired by the **2020 Tokyo Olympic Pic
 - **Real-time Preview**: Instant visual feedback
 - **Selective Reset**: Individual and global reset options
 
+### 🧩 Attachment System
+- **Multi-Type Attachments**: Ball and Stick attachments
+- **Flexible Positioning**: 3D position and rotation control
+- **Parent-Child Hierarchy**: Attach to any body part
+- **Dynamic Management**: Add, remove, and modify attachments
+
 ### 💾 Pose Storage System
 - **LocalStorage Persistence**: Browser-based pose saving
 - **Pose Validation**: Empty pose prevention
@@ -35,8 +41,15 @@ A 3D human model simulation application inspired by the **2020 Tokyo Olympic Pic
 ### 🎬 Keyframe Animation
 - **Timeline Editor**: Visual keyframe management interface
 - **Smooth Interpolation**: Ease-in-out natural motion
+- **Multi-State Support**: Pose, camera, and lighting keyframes
 - **Playback Control**: Play/Pause/Stop/Speed adjustment
 - **Loop Support**: Automatic repeat playback
+
+### 💡 Advanced Lighting System
+- **Phong Lighting Model**: Ambient, diffuse, and specular lighting
+- **Dynamic Light Control**: Real-time position and intensity adjustment
+- **Material Properties**: Adjustable shininess and reflectance
+- **Attenuation Support**: Distance-based light falloff
 
 ## 🚀 Usage Guide
 
@@ -53,11 +66,14 @@ A 3D human model simulation application inspired by the **2020 Tokyo Olympic Pic
 2. **Pose Editing**
    - Select joint → Adjust X/Y/Z sliders → Real-time feedback
 
-3. **Pose Management**
+3. **Attachment Management**
+   - Select body part → Add Ball/Stick → Adjust position/rotation
+
+4. **Pose Management**
    - Create pose → Enter name → Save
    - Select saved pose → Load
 
-4. **Animation Creation**
+5. **Animation Creation**
    - Create Pose 1 → Add to animation
    - Create Pose 2 → Add to animation
    - Play to preview
@@ -75,13 +91,14 @@ Animation:   RequestAnimationFrame, Easing Functions
 ### Architecture (v3.0.0)
 ```
 📁 SCE433_CG/
-├── 📄 athletics.html          # Main application page
-├── 📄 athletics.js           # Main application (refactored)
+├── 📄 pictogram.html         # Main application page
+├── 📄 pictogram.js          # Main application (refactored)
 ├── 📄 style.css              # UI styling
 ├── 📄 README.md              # Project documentation
 ├── 📁 js/                    # Module directory
 │   ├── 📄 model.js          # 3D human model (HumanModel)
 │   ├── 📄 camera.js         # Camera control (Camera)
+│   ├── 📄 lighting.js       # Lighting system (Lighting)
 │   ├── 📄 poseController.js # Joint pose control (PoseController)
 │   ├── 📄 poseStorage.js    # Pose storage (PoseStorage)
 │   └── 📄 animation.js      # Animation system (Animation)
@@ -94,9 +111,10 @@ Animation:   RequestAnimationFrame, Easing Functions
 ### Core Classes (Refactored)
 - **`HumanModel`**: Unified rendering method (`render()`)
 - **`Camera`**: Enhanced drag handling (`handleMouseDrag()`)
-- **`PoseController`**: Joint-centric hierarchical control
+- **`Lighting`**: Complete lighting control system
+- **`PoseController`**: Joint-centric hierarchical control with attachment support
 - **`PoseStorage`**: Enhanced pose validation and management
-- **`Animation`**: Keyframe-based animation system
+- **`Animation`**: Multi-state keyframe-based animation system
 
 ## ✨ v3.0.0 Refactoring Improvements
 
@@ -110,11 +128,13 @@ Animation:   RequestAnimationFrame, Easing Functions
 - **Event Handler Unification**: Eliminated redundant code
 - **UI Initialization Logic**: Data-driven initialization
 - **Enhanced Error Handling**: Safe DOM access patterns
+- **Modular Architecture**: Independent functional modules
 
 ### 🚀 Performance Optimization
 - **Method Call Optimization**: Reduced unnecessary method chains
 - **Memory Efficiency**: Optimized object creation patterns
 - **Rendering Pipeline**: Unified rendering logic
+- **State Management**: Improved camera and lighting state handling
 
 ## 🌟 Technical Highlights
 
@@ -123,17 +143,20 @@ Animation:   RequestAnimationFrame, Easing Functions
 - **Real-time Feedback**: Instant visual updates
 - **Status Messaging**: Success/error notifications
 - **Accordion UI**: Organized feature grouping
+- **Responsive Design**: Adaptive layout for different screen sizes
 
 ### Engineering Features
 - **Modular Design**: Independent functional modules
 - **JSDoc Documentation**: Complete API documentation
 - **Type Safety**: Parameter validation
 - **Exception Handling**: Robust error management
+- **State Persistence**: LocalStorage integration
 
 ### Animation Technology
-- **Smooth Interpolation**: Natural motion curves
+- **Smooth Interpolation**: Natural motion curves with easing
 - **60FPS Rendering**: Fluid animation playback
 - **Memory Management**: Optimized frame handling
+- **Multi-State Keyframes**: Pose, camera, and lighting synchronization
 
 ## 🌐 Browser Compatibility
 ```
@@ -150,21 +173,25 @@ Animation:   RequestAnimationFrame, Easing Functions
 ### Quick Start
 1. Clone the repository
 2. Start a local web server in the project directory
-3. Open `athletics.html` in your browser
+3. Open `pictogram.html` in your browser
 4. Start creating poses and animations!
 
 ## 📚 API Reference
 
 ### HumanModel Class
 ```javascript
-// Render the model with pose state
-humanModel.render(isRunning: boolean)
+// Render the model with current state
+humanModel.render()
 
 // Set joint transformation
 humanModel.setNodeTransform(nodeName, translation, rotation, scale)
 
 // Reset all transformations
 humanModel.resetAllTransforms()
+
+// Attachment management
+humanModel.addAttachment(parentNodeName, type, position, rotation)
+humanModel.removeAttachment(attachmentId)
 ```
 
 ### Camera Class
@@ -175,9 +202,45 @@ camera.setRotationX/Y/Z(angle: number)
 // Set camera scale
 camera.setScale(scale: number)
 
+// Get camera state for animation
+camera.getCameraState()
+
 // Reset camera state
 camera.reset()
 ```
+
+### Animation Class
+```javascript
+// Add current state as keyframe
+animation.addCurrentStateAsKeyframe()
+
+// Playback control
+animation.playAnimation()
+animation.pauseAnimation()
+animation.stopAnimation()
+
+// Export/Import
+animation.exportAnimation()
+animation.importAnimation(data)
+```
+
+## 🎨 Features Overview
+
+### Main Interface Sections
+1. **Switch Pose**: Quick pose presets (Running, Initial)
+2. **Joint Control**: Individual joint manipulation
+3. **Attachment Management**: Add/remove/modify attachments
+4. **Pose Management**: Save/load custom poses
+5. **Animation**: Keyframe-based animation creation
+6. **Camera View Control**: Camera positioning and orientation
+7. **Lighting Control**: Light position and intensity
+
+### Advanced Features
+- **Pose Interpolation**: Smooth transitions between keyframes
+- **Attachment System**: Dynamic object attachment to body parts
+- **State Validation**: Prevents invalid poses and animations
+- **Visual Timeline**: Interactive animation timeline with markers
+- **Export/Import**: Save and share animations
 
 ## 👥 Development Team
 - **Team**: SCE433 Computer Graphics Team
