@@ -52,6 +52,28 @@ body {
     box-shadow: var(--shadow-sm);
     padding: 20px;
     overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-gutter: stable;
+}
+
+/* 스크롤바 스타일링 - 오버레이 방식 */
+.right-panel::-webkit-scrollbar {
+    width: 12px;
+}
+
+.right-panel::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.right-panel::-webkit-scrollbar-thumb {
+    background-color: rgba(30, 64, 175, 0.3);
+    border-radius: 6px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+}
+
+.right-panel::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(30, 64, 175, 0.6);
 }
 
 h2 {
@@ -358,13 +380,13 @@ select:focus {
 }
 
 .pose-buttons {
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     gap: 5px;
     margin-top: 10px;
 }
 
 .pose-buttons button {
-    flex: 1;
     padding: 8px;
     font-size: 12px;
 }
